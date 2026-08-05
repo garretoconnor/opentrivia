@@ -1,11 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  DIFFICULTIES,
   LIMITS,
+  buzzTimer,
   createBoard,
   createBossBoard,
   createGame,
   createPlayers,
+  difficultySymbol,
   exportBoard,
   exportGame,
   gradeBossGuess,
@@ -15,6 +18,7 @@ import {
   resizeBoard,
   setWager,
 } from "../core.mjs";
+import { TriviaRoom } from "../api.mjs";
 
 test("new games use the required defaults", () => {
   const game = createGame();
@@ -23,6 +27,8 @@ test("new games use the required defaults", () => {
   assert.equal(game.boards[0].columns.length, 6);
   assert.equal(game.boards[0].columns[0].size, 5);
   assert.equal(game.boards[0].columns[0].clues.length, 5);
+  assert.equal(game.difficulty, "medium");
+  assert.equal(game.hero_image, "");
 });
 
 test("boards support every allowed size and reject out-of-range sizes", () => {
@@ -47,6 +53,7 @@ test("resizing preserves existing cards and fills new cards", () => {
 test("Boss boards are exactly one topic and one card", () => {
   const boss = createBossBoard();
   assert.equal(isBossBoard(boss), true);
+  assert.equal("value" in boss.columns[0].clues[0], false, "Boss clues are wager based and have no point value");
   assert.equal(isBossBoard(createBoard(2, 1)), false);
 });
 
@@ -61,9 +68,38 @@ test("game JSON round trips and size matches the board count", () => {
   const game = createGame();
   game.name = "Friday trivia";
   game.boards.push(createBossBoard());
+  game.difficulty = "hard";
+  game.hero_image = "data:image/png;base64,hero";
+  game.boards[0].columns[0].clues[0].image = "data:image/png;base64,clue";
   const parsed = JSON.parse(exportGame(game));
   assert.equal(parsed.game.size, 2);
   assert.equal(normalizeGame(parsed).boards.length, 2);
+  assert.equal(parsed.game.hero_image, game.hero_image);
+  assert.equal(parsed.game.boards[0].columns[0].clues[0].image, "data:image/png;base64,clue");
+  assert.equal("value" in parsed.game.boards[1].columns[0].clues[0], false);
+});
+
+test("v0.1 games migrate to v0.2 image and difficulty defaults", () => {
+  const legacy = createGame();
+  delete legacy.difficulty;
+  delete legacy.hero_image;
+  for (const board of legacy.boards) {
+    for (const column of board.columns) for (const clue of column.clues) delete clue.image;
+  }
+  const migrated = normalizeGame(legacy);
+  assert.equal(migrated.difficulty, "medium");
+  assert.equal(migrated.hero_image, "");
+  assert.equal(migrated.boards[0].columns[0].clues[0].image, "");
+});
+
+test("difficulty uses the specified colored-shape categories", () => {
+  assert.deepEqual(DIFFICULTIES, ["easy", "medium", "hard"]);
+  assert.equal(difficultySymbol("easy"), "●");
+  assert.equal(difficultySymbol("medium"), "■");
+  assert.equal(difficultySymbol("hard"), "◆");
+  const invalid = createGame();
+  invalid.difficulty = "impossible";
+  assert.throws(() => normalizeGame(invalid), /difficulty/);
 });
 
 test("imports enforce the declared schema", () => {
@@ -102,4 +138,32 @@ test("players below zero after Boss grading are eliminated", () => {
   gradeBossGuess(player, false);
   assert.equal(player.points, -5);
   assert.equal(player.eliminated, true);
+});
+
+test("buzz timer shows 30 seconds followed by a red five-second overtime", () => {
+  const deadline = 100_000;
+  assert.deepEqual(buzzTimer(deadline, 65_000), { seconds: 30, overtime: false, expired: false });
+  assert.deepEqual(buzzTimer(deadline, 95_000), { seconds: 5, overtime: true, expired: false });
+  assert.deepEqual(buzzTimer(deadline, 100_000), { seconds: 0, overtime: true, expired: true });
+});
+
+test("hosted rooms expose a game, reject non-host closure, and cease to exist after host closure", async () => {
+  const values = new Map();
+  const storage = {
+    async get(key) { return values.get(key); },
+    async put(key, value) { values.set(key, value); },
+    async deleteAll() { values.clear(); },
+    async setAlarm(value) { values.set("alarm", value); },
+    async deleteAlarm() { values.delete("alarm"); },
+  };
+  const room = new TriviaRoom({ storage });
+  const created = await room.fetch(new Request("https://room/create", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game: createGame() }),
+  }));
+  assert.equal(created.status, 201);
+  const { host_token } = await created.json();
+  assert.equal((await room.fetch(new Request("https://room/"))).status, 200);
+  assert.equal((await room.fetch(new Request("https://room/close", { method: "POST", headers: { "x-host-token": "wrong" } }))).status, 403);
+  assert.equal((await room.fetch(new Request("https://room/close", { method: "POST", headers: { "x-host-token": host_token } }))).status, 200);
+  assert.equal((await room.fetch(new Request("https://room/"))).status, 404);
 });

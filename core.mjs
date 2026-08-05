@@ -10,10 +10,12 @@ export const LIMITS = Object.freeze({
   defaultPlayers: 3,
 });
 
+export const DIFFICULTIES = Object.freeze(["easy", "medium", "hard"]);
+
 const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 
 export function createClue(row) {
-  return { value: (row + 1) * 200, answer: "", question: "" };
+  return { value: (row + 1) * 200, answer: "", question: "", image: "" };
 }
 
 export function createBoard(rows = LIMITS.defaultRows, columns = LIMITS.defaultColumns) {
@@ -30,13 +32,20 @@ export function createBoard(rows = LIMITS.defaultRows, columns = LIMITS.defaultC
 
 export function createBossBoard() {
   return {
-    columns: [{ topic: "Boss topic", size: 1, clues: [{ value: 0, answer: "", question: "" }] }],
+    columns: [{ topic: "Boss topic", size: 1, clues: [{ answer: "", question: "", image: "" }] }],
   };
 }
 
 export function createGame() {
   const boards = [createBoard()];
-  return { name: "Untitled game", num_players: LIMITS.defaultPlayers, size: boards.length, boards };
+  return {
+    name: "Untitled game",
+    num_players: LIMITS.defaultPlayers,
+    size: boards.length,
+    difficulty: "medium",
+    hero_image: "",
+    boards,
+  };
 }
 
 export function isBossBoard(board) {
@@ -65,6 +74,9 @@ export function normalizeBoard(input, label = "board") {
   if (!Array.isArray(board.columns)) throw new Error(`${label}.columns must be an array.`);
   assertIntegerInRange(board.columns.length, LIMITS.minColumns, LIMITS.maxColumns, `${label}.columns length`);
 
+  const boss = board.columns.length === 1
+    && board.columns[0]?.size === 1
+    && board.columns[0]?.clues?.length === 1;
   return {
     columns: board.columns.map((column, columnIndex) => {
       const path = `${label}.columns[${columnIndex}]`;
@@ -78,24 +90,33 @@ export function normalizeBoard(input, label = "board") {
       return {
         topic: column.topic,
         size: column.size,
-        clues: column.clues.map((clue, clueIndex) => normalizeClue(clue, `${path}.clues[${clueIndex}]`)),
+        clues: column.clues.map((clue, clueIndex) => normalizeClue(clue, `${path}.clues[${clueIndex}]`, boss)),
       };
     }),
   };
 }
 
-function normalizeClue(clue, path) {
+function normalizeClue(clue, path, boss = false) {
   if (!isObject(clue)) throw new Error(`${path} must be an object.`);
-  if (!Number.isInteger(clue.value)) throw new Error(`${path}.value must be an integer.`);
+  if (!boss && !Number.isInteger(clue.value)) throw new Error(`${path}.value must be an integer.`);
   if (typeof clue.answer !== "string") throw new Error(`${path}.answer must be a string.`);
   if (typeof clue.question !== "string") throw new Error(`${path}.question must be a string.`);
-  return { value: clue.value, answer: clue.answer, question: clue.question };
+  if (clue.image !== undefined && typeof clue.image !== "string") throw new Error(`${path}.image must be a string.`);
+  return {
+    ...(boss ? {} : { value: clue.value }),
+    answer: clue.answer,
+    question: clue.question,
+    image: clue.image ?? "",
+  };
 }
 
 export function normalizeGame(input) {
   const game = isObject(input) && "game" in input ? input.game : input;
   if (!isObject(game)) throw new Error("game must be an object.");
   if (typeof game.name !== "string") throw new Error("game.name must be a string.");
+  const difficulty = game.difficulty ?? "medium";
+  if (!DIFFICULTIES.includes(difficulty)) throw new Error(`game.difficulty must be one of: ${DIFFICULTIES.join(", ")}.`);
+  if (game.hero_image !== undefined && typeof game.hero_image !== "string") throw new Error("game.hero_image must be a string.");
   assertIntegerInRange(game.num_players, LIMITS.minPlayers, LIMITS.maxPlayers, "game.num_players");
   if (!Number.isInteger(game.size) || game.size < 1) throw new Error("game.size must be an integer of at least 1.");
   if (!Array.isArray(game.boards)) throw new Error("game.boards must be an array.");
@@ -104,8 +125,15 @@ export function normalizeGame(input) {
     name: game.name,
     num_players: game.num_players,
     size: game.size,
+    difficulty,
+    hero_image: game.hero_image ?? "",
     boards: game.boards.map((board, index) => normalizeBoard(board, `game.boards[${index}]`)),
   };
+}
+
+export function difficultySymbol(difficulty) {
+  const normalized = DIFFICULTIES.includes(difficulty) ? difficulty : "medium";
+  return normalized === "easy" ? "●" : normalized === "medium" ? "■" : "◆";
 }
 
 export function exportBoard(board) {
@@ -154,6 +182,17 @@ export function adjustScore(player, delta) {
   if (!Number.isInteger(delta)) throw new Error("Score adjustment must be an integer.");
   player.points += delta;
   return player;
+}
+
+export function buzzTimer(deadline, now = Date.now()) {
+  if (!Number.isFinite(deadline) || !Number.isFinite(now)) throw new Error("Buzz timer values must be finite numbers.");
+  const remainingMs = Math.max(0, deadline - now);
+  const overtime = remainingMs <= 5_000;
+  return {
+    seconds: overtime ? Math.ceil(remainingMs / 1000) : Math.ceil((remainingMs - 5_000) / 1000),
+    overtime,
+    expired: remainingMs === 0,
+  };
 }
 
 export function assertIntegerInRange(value, minimum, maximum, label) {

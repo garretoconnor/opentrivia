@@ -4,18 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#101a2b" />
-    <meta name="description" content="Create, share, and host custom trivia games with friends." />
+    <meta name="description" content="Create, discover, and host custom trivia games with friends." />
     <title>OpenTrivia — Make a game night</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=0.3.0" />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="topbar">
       <button class="brand" id="home-button" type="button" aria-label="OpenTrivia home">
-        <span class="brand-mark" aria-hidden="true">O</span>
-        <span>OpenTrivia</span>
+        <span class="brand-mark" aria-hidden="true">O</span><span>OpenTrivia</span>
       </button>
-      <div class="top-actions" id="editor-actions">
+      <nav class="main-nav" aria-label="Main navigation">
+        <button type="button" data-view="library">Explore</button>
+        <button type="button" data-view="studio">Create</button>
+        <button type="button" data-view="join">Join</button>
+      </nav>
+      <div class="top-actions" id="editor-actions" hidden>
         <button class="button quiet" id="import-button" type="button">Import</button>
         <div class="menu-wrap">
           <button class="button quiet" id="export-button" type="button" aria-expanded="false">Export</button>
@@ -24,24 +28,49 @@
             <button type="button" id="export-game-button">Whole game</button>
           </div>
         </div>
-        <button class="button primary" id="play-button" type="button">Play game <span aria-hidden="true">→</span></button>
+        <button class="button secondary" id="publish-button" type="button">Publish</button>
+        <button class="button primary" id="play-button" type="button">Play <span aria-hidden="true">→</span></button>
       </div>
-      <button class="button quiet" id="exit-play-button" type="button" hidden>Exit play mode</button>
+      <button class="button quiet" id="exit-play-button" type="button" hidden>Exit game</button>
     </header>
 
     <main id="main">
-      <section id="studio-view" class="studio-view" aria-labelledby="studio-title">
+      <section id="library-view" class="library-view" aria-labelledby="library-title">
+        <div class="library-hero">
+          <div>
+            <div class="eyebrow">Made for game night</div>
+            <h1 id="library-title">Find your next favorite trivia game.</h1>
+            <p>Pick a community-made board to play together, or host it and share a room code with friends.</p>
+          </div>
+          <button class="button primary" id="hero-create-button" type="button">Create a game</button>
+        </div>
+        <div class="library-heading">
+          <div><h2>Public games</h2><p id="library-status">Loading the library…</p></div>
+          <button class="button quiet" id="refresh-library-button" type="button">Refresh</button>
+        </div>
+        <div id="game-grid" class="game-grid" aria-live="polite"></div>
+      </section>
+
+      <section id="studio-view" class="studio-view" hidden aria-labelledby="studio-title">
         <aside class="game-rail">
           <div class="eyebrow">Game studio</div>
           <label class="field-label" for="game-name">Game name</label>
           <input class="game-name-input" id="game-name" maxlength="80" value="Untitled game" />
+          <label class="field-label" for="difficulty">Difficulty</label>
+          <select id="difficulty" class="compact-select">
+            <option value="easy">● Easy</option><option value="medium">■ Medium</option><option value="hard">◆ Hard</option>
+          </select>
           <label class="field-label" for="player-count">Players</label>
           <select id="player-count" class="compact-select"></select>
+          <label class="field-label" for="hero-image-input">Hero image</label>
+          <label class="image-upload" for="hero-image-input">
+            <img id="hero-image-preview" alt="" hidden />
+            <span id="hero-image-copy">Choose an image</span>
+          </label>
+          <input id="hero-image-input" type="file" accept="image/*" hidden />
+          <button class="text-button" id="remove-hero-button" type="button" hidden>Remove hero image</button>
 
-          <div class="rail-heading">
-            <span>Rounds</span>
-            <span class="round-count" id="round-count">1</span>
-          </div>
+          <div class="rail-heading"><span>Rounds</span><span class="round-count" id="round-count">1</span></div>
           <div id="board-list" class="board-list" role="list"></div>
           <div class="add-rounds">
             <button class="button secondary" id="add-board-button" type="button"><span aria-hidden="true">＋</span> Standard round</button>
@@ -63,71 +92,62 @@
               <button class="icon-button danger" id="delete-board-button" type="button" title="Delete this round" aria-label="Delete this round">×</button>
             </div>
           </div>
-          <div class="editor-board-wrap">
-            <div class="editor-board" id="editor-board"></div>
-          </div>
-          <div class="legend">
-            <span><i class="legend-dot complete"></i> Complete card</span>
-            <span><i class="legend-dot draft"></i> Needs content</span>
-          </div>
+          <div class="editor-board-wrap"><div class="editor-board" id="editor-board"></div></div>
+          <div class="legend"><span><i class="legend-dot complete"></i> Complete card</span><span><i class="legend-dot draft"></i> Needs content</span></div>
         </section>
       </section>
 
       <section id="play-setup-view" class="center-view" hidden aria-labelledby="setup-title">
         <div class="setup-card">
-          <div class="eyebrow">Almost game time</div>
-          <h1 id="setup-title">Meet the players</h1>
-          <p>Add names and choose a starting score. You can still go back and edit the game.</p>
+          <div class="eyebrow">Almost game time</div><h1 id="setup-title">Meet the players</h1>
+          <p>Add names and choose a starting score.</p>
           <div id="player-name-fields" class="player-name-fields"></div>
           <label class="field-label" for="starting-points">Starting points</label>
           <input id="starting-points" type="number" min="1" step="100" value="1000" />
-          <div class="dialog-actions">
-            <button class="button quiet" id="cancel-setup-button" type="button">Back to studio</button>
-            <button class="button primary" id="launch-button" type="button">Start round one</button>
-          </div>
+          <div class="dialog-actions"><button class="button quiet" id="cancel-setup-button" type="button">Back</button><button class="button primary" id="launch-button" type="button">Start round one</button></div>
+        </div>
+      </section>
+
+      <section id="join-view" class="join-view" hidden aria-labelledby="join-title">
+        <div class="join-card">
+          <div class="room-code-icon" aria-hidden="true">#</div><div class="eyebrow">Join a friend</div>
+          <h1 id="join-title">Enter your room code</h1><p>Ask the host for the six-character code shown on their screen.</p>
+          <form id="join-form"><label class="field-label" for="room-code">Room code</label><input id="room-code" class="room-code-input" maxlength="6" autocomplete="one-time-code" inputmode="text" placeholder="ABC234" required /><label class="field-label" for="join-player-name">Your name</label><input id="join-player-name" maxlength="30" autocomplete="nickname" placeholder="Player name" required /><button class="button primary" type="submit">Join room</button></form>
+          <div id="join-result" class="join-result" hidden></div>
+        </div>
+      </section>
+
+      <section id="host-view" class="join-view" hidden aria-labelledby="host-title">
+        <div class="join-card host-card">
+          <div class="live-dot" aria-hidden="true"></div><div class="eyebrow">Room is open</div>
+          <h1 id="host-title">Share this code</h1><button id="host-code" class="host-code" type="button" title="Copy room code">------</button>
+          <p id="host-game-name"></p><div id="host-player-list" class="host-player-list" aria-live="polite"></div><p class="muted">The room closes when you close it or after six hours.</p>
+          <div class="dialog-actions"><button class="button quiet" id="close-room-button" type="button">Close room</button><button class="button primary" id="host-start-button" type="button">Start hosting</button></div>
         </div>
       </section>
 
       <section id="play-view" class="play-view" hidden aria-live="polite">
-        <div class="play-meta">
-          <div>
-            <div class="eyebrow" id="play-kicker">Round 1 of 1</div>
-            <h1 id="play-game-name">Untitled game</h1>
-          </div>
-          <div id="scoreboard" class="scoreboard" aria-label="Scores"></div>
-        </div>
+        <div class="play-meta"><div><div class="eyebrow" id="play-kicker">Round 1 of 1</div><h1 id="play-game-name">Untitled game</h1></div><div id="scoreboard" class="scoreboard" aria-label="Scores"></div></div>
         <div id="play-stage" class="play-stage"></div>
       </section>
     </main>
 
     <dialog id="clue-dialog" class="dialog clue-dialog">
       <form method="dialog" id="clue-form">
-        <div class="dialog-topline">
-          <div>
-            <div class="eyebrow" id="clue-location">Topic · 200</div>
-            <h2>Edit card</h2>
-          </div>
-          <button class="icon-button" value="cancel" aria-label="Close">×</button>
-        </div>
-        <label class="field-label" for="clue-value">Point value</label>
-        <input id="clue-value" name="value" type="number" step="1" required />
-        <label class="field-label" for="clue-answer">Clue shown to players</label>
-        <textarea id="clue-answer" name="answer" rows="4" placeholder="e.g. This planet is famous for its rings"></textarea>
-        <label class="field-label" for="clue-question">Correct response</label>
-        <textarea id="clue-question" name="question" rows="3" placeholder="e.g. What is Saturn?"></textarea>
-        <div class="dialog-actions">
-          <button class="button quiet" value="cancel" type="button" id="cancel-clue-button">Cancel</button>
-          <button class="button primary" value="save" type="submit">Save card</button>
-        </div>
+        <div class="dialog-topline"><div><div class="eyebrow" id="clue-location">Topic · 200</div><h2>Edit card</h2></div><button class="icon-button" value="cancel" aria-label="Close">×</button></div>
+        <div id="clue-value-field"><label class="field-label" for="clue-value">Point value</label><input id="clue-value" name="value" type="number" step="1" /></div>
+        <label class="field-label" for="clue-answer">Clue shown to players</label><textarea id="clue-answer" name="answer" rows="4" placeholder="e.g. This planet is famous for its rings"></textarea>
+        <label class="field-label" for="clue-question">Correct response</label><textarea id="clue-question" name="question" rows="3" placeholder="e.g. What is Saturn?"></textarea>
+        <label class="field-label" for="clue-image-input">Clue image (optional)</label>
+        <div class="inline-upload"><input id="clue-image-input" type="file" accept="image/*" /><button class="button quiet" id="remove-clue-image" type="button" hidden>Remove</button></div>
+        <img id="clue-image-preview" class="clue-image-preview" alt="Clue preview" hidden />
+        <div class="dialog-actions"><button class="button quiet" value="cancel" type="button" id="cancel-clue-button">Cancel</button><button class="button primary" value="save" type="submit">Save card</button></div>
       </form>
     </dialog>
 
-    <dialog id="card-dialog" class="dialog play-card-dialog">
-      <div id="card-dialog-content"></div>
-    </dialog>
-
+    <dialog id="card-dialog" class="dialog play-card-dialog"><div id="card-dialog-content"></div></dialog>
     <input id="file-input" type="file" accept="application/json,.json" hidden />
     <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
-    <script type="module" src="app.js"></script>
+    <script type="module" src="app.js?v=0.3.1"></script>
   </body>
 </html>
