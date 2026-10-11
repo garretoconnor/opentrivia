@@ -1,0 +1,79 @@
+name: Deploy built Worker
+run-name: Deploy OpenTrivia from ${{ github.ref_name }} by @${{ github.actor }}
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-opentrivia-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy OpenTrivia
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: "true"
+      CF_SEND_TELEMETRY: "false"
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - name: Require main branch
+        env:
+          SELECTED_REF: ${{ github.ref }}
+        run: |
+          if [ "$SELECTED_REF" != "refs/heads/main" ]; then
+            echo "::error::Select main when you run this workflow."
+            exit 1
+          fi
+
+      - name: Check deployment credential
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Add the CLOUDFLARE_API_TOKEN repository secret before deployment."
+            exit 1
+          fi
+
+      - name: Check out selected revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build Worker and browser assets
+        run: npm run build:worker
+
+      - name: Validate built Worker
+        run: npx cf deploy --prebuilt --dry-run
+
+      - name: Apply production database migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx cf d1 migrations apply 5951b3b3-d55d-4e4f-ad61-c62840ba4e3c
+
+      - name: Deploy built Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx cf deploy --prebuilt
+
+      - name: Record deployed revision
+        env:
+          DEPLOYED_SHA: ${{ github.sha }}
+        run: |
+          printf 'Deployed OpenTrivia commit `%s`.\n' "$DEPLOYED_SHA" >> "$GITHUB_STEP_SUMMARY"

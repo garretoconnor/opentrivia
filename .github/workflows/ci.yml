@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 10
     env:
       CI: "true"
-      CLOUDFLARE_SEND_METRICS: "false"
+      CF_SEND_TELEMETRY: "false"
       WRANGLER_SEND_METRICS: "false"
     steps:
       - name: Check out source
@@ -42,3 +42,6 @@ jobs:
 
       - name: Build Worker and browser assets
         run: npm run build:worker
+
+      - name: Validate built Worker
+        run: npx cf deploy --prebuilt --dry-run
