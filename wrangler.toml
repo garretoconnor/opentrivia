@@ -1,0 +1,16 @@
+name = "opentrivia"
+main = "dist/server/index.js"
+compatibility_date = "2026-08-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "opentrivia"
+database_id = "5951b3b3-d55d-4e4f-ad61-c62840ba4e3c"
+
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "TriviaRoom"
+
+[[migrations]]
+tag = "v0.2"
+new_sqlite_classes = ["TriviaRoom"]
