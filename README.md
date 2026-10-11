@@ -19,6 +19,8 @@ npm test
 npm run build
 ```
 
+GitHub Actions runs `npm ci`, `npm test`, and `npm run build:worker` for every pull request and push to `main`. The **Tests and Worker build** check uses Node.js 24 on Linux. The Worker build also generates the browser assets. CI needs no Cloudflare credentials and does not deploy or change the database. New commits cancel older runs for the same branch or pull request.
+
 ## Deploy on Cloudflare
 
 The project uses `cf` with `cloudflare.config.ts`. `wrangler.config.ts` supplies the build settings. The build runs `scripts/build.mjs` before packaging the Worker, so the generated entrypoint and browser assets stay current.
