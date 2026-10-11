@@ -37,6 +37,16 @@ npm run deploy
 
 `npm run build:worker` packages the Worker locally. `npm run deploy` builds and deploys it. The remote migration command changes the production database. The migration directory remains `migrations/`, and the migration tracking table remains `d1_migrations`.
 
+### Manual deployment button
+
+After this workflow is merged, open **Actions → Deploy built Worker → Run workflow** in GitHub. Select **main**, then click **Run workflow**. This deploys to the existing production Worker; there is no staging environment.
+
+First, add a repository Actions secret named `CLOUDFLARE_API_TOKEN` in **Settings → Secrets and variables → Actions**. Use a Cloudflare API token for the configured account with Worker deployment and D1 migration permissions. The account ID is already in `cloudflare.config.ts`. Your local Cloudflare sign-in is not available on GitHub runners. Never put the token in a file or PR.
+
+The action checks the credential, installs locked dependencies, runs tests, builds the Worker, and validates the build. It then applies pending production database migrations and deploys that exact build with `cf deploy --prebuilt`. A failed step stops deployment. If deployment fails after a migration, that migration remains applied. Keep schema changes compatible with the running Worker.
+
+Only manual runs from `main` can deploy. Deployments do not run on merges. Concurrent deployment runs are serialized. This button creates a fresh tested build from the selected main revision; it does not select an artifact from a prior CI run.
+
 The original `wrangler.toml` is retained as a conversion reference. Make future configuration changes in `cloudflare.config.ts` and `wrangler.config.ts`.
 
 Published game JSON and uploaded hero/clue images are stored in D1. Room state—including joined players, buzz order, deadlines, rulings, and scores—is serialized by a Durable Object. It expires after six hours and is deleted immediately when the host closes the room.
