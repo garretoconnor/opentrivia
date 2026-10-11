@@ -9,6 +9,6 @@
     "build": "node scripts/build.mjs"
   },
   "devDependencies": {
-    "wrangler": "^4.115.0"
+    "wrangler": "^4.147.0"
   }
 }

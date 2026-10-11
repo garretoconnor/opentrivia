@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#101a2b" />
+    <meta name="theme-color" content="#66d2f5" />
     <meta name="description" content="Create, discover, and host custom trivia games with friends." />
     <title>OpenTrivia — Make a game night</title>
-    <link rel="stylesheet" href="styles.css?v=0.3.0" />
+    <link rel="stylesheet" href="styles.css?v=0.4.0" />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -16,6 +16,7 @@
       </button>
       <nav class="main-nav" aria-label="Main navigation">
         <button type="button" data-view="library">Explore</button>
+        <button type="button" data-view="daily">Daily trivia</button>
         <button type="button" data-view="studio">Create</button>
         <button type="button" data-view="join">Join</button>
       </nav>
@@ -49,6 +50,37 @@
           <button class="button quiet" id="refresh-library-button" type="button">Refresh</button>
         </div>
         <div id="game-grid" class="game-grid" aria-live="polite"></div>
+      </section>
+
+      <section id="daily-view" class="daily-view" hidden aria-labelledby="daily-title">
+        <div class="library-heading">
+          <div><div class="eyebrow">A little curiosity, every day</div><h1 id="daily-title">Daily trivia</h1><p id="daily-date"></p></div>
+          <button type="button" class="button quiet" id="daily-refresh">Refresh</button>
+        </div>
+        <p>Everyone plays the same question. A new question arrives at 2 AM EST (07:00 UTC), year-round.</p>
+        <div id="daily-error" role="alert"></div>
+        <article class="daily-card" aria-labelledby="daily-question">
+          <p id="daily-status" role="status">Loading today’s question…</p>
+          <h2 id="daily-question"></h2>
+          <p id="daily-identity" class="muted"></p>
+          <form id="daily-player-form" hidden>
+            <label class="field-label" for="daily-name">Leaderboard name</label>
+            <input id="daily-name" autocomplete="nickname" maxlength="30" required />
+            <button type="submit" class="button primary">Join daily trivia</button>
+          </form>
+          <form id="daily-answer-form" hidden>
+            <label class="field-label" for="daily-answer">Your answer</label>
+            <input id="daily-answer" maxlength="300" autocomplete="off" required aria-describedby="daily-answer-help" />
+            <p id="daily-answer-help" class="muted">You get one submission. Capitalization and extra spaces don’t matter.</p>
+            <button type="submit" class="button primary">Submit answer</button>
+          </form>
+          <div id="daily-result" role="status" hidden></div>
+        </article>
+        <p class="muted">Leaderboards show the top 100 players. Equal points share a rank.</p>
+        <div class="daily-leaderboards">
+          <section class="daily-card" aria-labelledby="daily-board-title"><h2 id="daily-board-title">Today’s leaderboard</h2><div id="daily-board"></div></section>
+          <section class="daily-card" aria-labelledby="daily-season-title"><h2 id="daily-season-title">Season leaderboard</h2><div id="season-board"></div></section>
+        </div>
       </section>
 
       <section id="studio-view" class="studio-view" hidden aria-labelledby="studio-title">
@@ -148,6 +180,6 @@
     <dialog id="card-dialog" class="dialog play-card-dialog"><div id="card-dialog-content"></div></dialog>
     <input id="file-input" type="file" accept="application/json,.json" hidden />
     <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
-    <script type="module" src="app.js?v=0.3.1"></script>
+    <script type="module" src="app.js?v=0.3.2"></script>
   </body>
 </html>

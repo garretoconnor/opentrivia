@@ -1,0 +1,60 @@
+import { createGame, normalizeGame } from "../core.mjs?v=0.3.1";
+
+export const STORAGE_KEY = "opentrivia.game.v0.2";
+export const LEGACY_STORAGE_KEY = "opentrivia.game.v0.1";
+export const LOCAL_LIBRARY_KEY = "opentrivia.library.v0.2";
+export const VOTER_KEY = "opentrivia.voter.v0.2";
+
+function loadGame() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
+    return saved ? normalizeGame(JSON.parse(saved)) : createGame();
+  } catch {
+    return createGame();
+  }
+}
+
+const initialGame = loadGame();
+
+export const state = {
+  game: initialGame,
+  authoredGame: initialGame,
+  selectedBoard: 0,
+  editingClue: null,
+  session: null,
+  returnView: "studio",
+  publishedGameId: null,
+  hostedRoom: null,
+  pendingClueImage: "",
+  currentView: "library",
+  joinedRoom: null,
+  hostRoomSnapshot: null,
+  roomPollTimer: null,
+  hostClueLocation: null,
+};
+
+export function saveGame() {
+  state.game.size = state.game.boards.length;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.game));
+}
+
+export function localLibrary() {
+  try {
+    return JSON.parse(localStorage.getItem(LOCAL_LIBRARY_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+export function saveLocalLibrary(games) {
+  localStorage.setItem(LOCAL_LIBRARY_KEY, JSON.stringify(games));
+}
+
+export function voterId() {
+  let id = localStorage.getItem(VOTER_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(VOTER_KEY, id);
+  }
+  return id;
+}
