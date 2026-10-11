@@ -21,17 +21,21 @@ npm run build
 
 ## Deploy on Cloudflare
 
-This repository currently uses Wrangler configuration. The newer Cloudflare CLI (`cf`) is installed on the development machine, but requires conversion to `cloudflare.config.ts` before project build or deployment commands. Do not use `cf init` on this existing project. See the [Cloudflare migration reference](https://developers.cloudflare.com/cf/wrangler/reference/). The Wrangler commands below apply to the current repository configuration.
+The project uses `cf` with `cloudflare.config.ts`. `wrangler.config.ts` supplies the build settings. The build runs `scripts/build.mjs` before packaging the Worker, so the generated entrypoint and browser assets stay current.
 
-1. Create a D1 database named `opentrivia`.
-2. Replace the placeholder `database_id` in `wrangler.toml` with its ID.
-3. Apply the migration and deploy:
+Install the dependencies with `npm ci`. Confirm account access with `npx cf auth whoami`. The configuration points to the existing `opentrivia` Worker and D1 database.
+
+Apply database migrations before deployment:
 
 ```sh
-npx wrangler d1 migrations apply opentrivia --remote
-npm run build
-npx wrangler deploy
+npx cf d1 migrations apply 5951b3b3-d55d-4e4f-ad61-c62840ba4e3c
+npm run build:worker
+npm run deploy
 ```
+
+`npm run build:worker` packages the Worker locally. `npm run deploy` builds and deploys it. The remote migration command changes the production database. The migration directory remains `migrations/`, and the migration tracking table remains `d1_migrations`.
+
+The original `wrangler.toml` is retained as a conversion reference. Make future configuration changes in `cloudflare.config.ts` and `wrangler.config.ts`.
 
 Published game JSON and uploaded hero/clue images are stored in D1. Room state—including joined players, buzz order, deadlines, rulings, and scores—is serialized by a Durable Object. It expires after six hours and is deleted immediately when the host closes the room.
 
@@ -48,7 +52,7 @@ Players choose a public display name. A server-issued, HttpOnly cookie remembers
 Apply `migrations/0002_daily_trivia.sql` using the deployment migration command above. The migration deliberately creates **no questions**. The app creates seasons automatically on the first request in each season. Manage questions privately through D1 SQL (there is no public bank-writing API). Write a private SQL file and apply it with:
 
 ```sh
-npx wrangler d1 execute opentrivia --remote --file=/path/to/your-daily-content.sql
+npx cf d1 query 5951b3b3-d55d-4e4f-ad61-c62840ba4e3c --sql "$(cat /path/to/your-daily-content.sql)"
 ```
 
 Default seasons repeat every year:
@@ -82,14 +86,13 @@ Each question is used once across all seasons. The first daily request atomicall
 
 ### Preview daily trivia locally
 
-The static preview cannot provide shared daily trivia. Use the local Worker and local D1 instead:
+The static preview cannot provide shared daily trivia. Use the local Worker and local D1 instead. The Wrangler development server uses `.wrangler/state`; pass that directory to local D1 commands so they use the same database:
 
 ```sh
-npx wrangler d1 migrations apply opentrivia --local
+npx cf d1 migrations apply 5951b3b3-d55d-4e4f-ad61-c62840ba4e3c --local --persist-to .wrangler/state
 # Optionally apply your own questions to the local database:
-npx wrangler d1 execute opentrivia --local --file=/path/to/your-daily-content.sql
-npm run build
-npx wrangler dev --local
+npx cf d1 query 5951b3b3-d55d-4e4f-ad61-c62840ba4e3c --local --persist-to .wrangler/state --sql "$(cat /path/to/your-daily-content.sql)"
+npm run dev:worker
 ```
 
 `npm test` includes SQLite-backed tests for concurrent assignment/submission, grading, answer privacy, rollover, seasonal totals, and empty states. These tests require Node.js 22.13 or newer with `node:sqlite` available.
