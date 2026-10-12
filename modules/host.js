@@ -1,8 +1,8 @@
 import { normalizeGame } from "../core.mjs?v=0.3.1";
-import { allowsLocalFallback, api } from "./data.js";
-import { getPublishedGame, recordLocalPlay } from "./library.js";
-import { renderPlayRound, renderScoreboard } from "./local-play.js";
-import { $, elements, escapeHtml, formatText, switchView, toast, updateBuzzTimers } from "./render.js";
+import { allowsLocalFallback, api } from "./data.js?v=0.5.1";
+import { getPublishedGame, recordLocalPlay } from "./library.js?v=0.5.1";
+import { renderPlayRound, renderScoreboard } from "./local-play.js?v=0.5.1";
+import { $, elements, escapeHtml, formatText, switchView, toast, updateBuzzTimers } from "./render.js?v=0.5.1";
 import {
   localRoomStore,
   makeLocalRoom,
@@ -10,8 +10,8 @@ import {
   saveLocalRooms,
   scheduleRoomPoll,
   stopRoomPolling,
-} from "./rooms.js";
-import { state } from "./state.js";
+} from "./rooms.js?v=0.5.1";
+import { state } from "./state.js?v=0.5.1";
 
 function hostHeaders() {
   return { "x-host-token": state.hostedRoom?.host_token || "" };

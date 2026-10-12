@@ -1,5 +1,5 @@
 import { buzzTimer } from "../core.mjs?v=0.3.1";
-import { state } from "./state.js";
+import { state } from "./state.js?v=0.5.1";
 
 export const $ = (selector) => document.querySelector(selector);
 
@@ -40,7 +40,10 @@ export function switchView(view) {
   elements.editorActions.hidden = view !== "studio";
   elements.exitPlay.hidden = !["setup", "play", "host"].includes(view);
   document.querySelectorAll(".main-nav button").forEach((button) => {
-    button.classList.toggle("active", button.dataset.view === view);
+    const active = button.dataset.view === view;
+    button.classList.toggle("active", active);
+    if (active) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
   });
   if (view === "studio") renderStudio();
   if (view === "library") loadLibrary();

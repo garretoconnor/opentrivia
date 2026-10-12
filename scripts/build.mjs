@@ -3,7 +3,7 @@ import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 const moduleFiles = (await readdir("modules")).filter((file) => file.endsWith(".js")).map((file) => `modules/${file}`);
 // Local room support imports api.mjs, which also imports daily.mjs. Both must
 // be served to browsers as well as copied for the Worker entrypoint.
-const files = ["index.html", "styles.css", "app.js", "core.mjs", "api.mjs", "daily.mjs", ...moduleFiles];
+const files = ["index.html", "ok-logo.svg", "favicon.svg", "styles.css", "studio.css", "app.js", "core.mjs", "api.mjs", "daily.mjs", ...moduleFiles];
 
 await rm("dist", { recursive: true, force: true });
 await mkdir("dist/modules", { recursive: true });
@@ -18,7 +18,7 @@ const worker = `import { handleApi, TriviaRoom } from "../api.mjs";
 export { TriviaRoom };
 
 const ASSETS = ${JSON.stringify(assets)};
-const TYPES = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8" };
+const TYPES = { ".html": "text/html; charset=utf-8", ".svg": "image/svg+xml", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8" };
 
 export default {
   async fetch(request, env) {

@@ -6,42 +6,49 @@
     <meta name="theme-color" content="#66d2f5" />
     <meta name="description" content="Create, discover, and host custom trivia games with friends." />
     <title>OpenTrivia — Make a game night</title>
-    <link rel="stylesheet" href="styles.css?v=0.4.0" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css?v=0.5.3" />
+    <link rel="stylesheet" href="studio.css?v=0.5.2" />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
-    <header class="topbar">
-      <button class="brand" id="home-button" type="button" aria-label="OpenTrivia home">
-        <span class="brand-mark" aria-hidden="true">O</span><span>OpenTrivia</span>
-      </button>
-      <nav class="main-nav" aria-label="Main navigation">
-        <button type="button" data-view="library">Explore</button>
-        <button type="button" data-view="daily">Daily trivia</button>
-        <button type="button" data-view="studio">Create</button>
-        <button type="button" data-view="join">Join</button>
-      </nav>
-      <div class="top-actions" id="editor-actions" hidden>
-        <button class="button quiet" id="import-button" type="button">Import</button>
-        <div class="menu-wrap">
-          <button class="button quiet" id="export-button" type="button" aria-expanded="false">Export</button>
-          <div class="export-menu" id="export-menu" hidden>
-            <button type="button" id="export-board-button">Current board</button>
-            <button type="button" id="export-game-button">Whole game</button>
-          </div>
-        </div>
-        <button class="button secondary" id="publish-button" type="button">Publish</button>
-        <button class="button primary" id="play-button" type="button">Play <span aria-hidden="true">→</span></button>
-      </div>
-      <button class="button quiet" id="exit-play-button" type="button" hidden>Exit game</button>
-    </header>
+
+
+    <div class="app-layout">
+      <aside class="sidebar" aria-label="App sidebar">
+        <button class="brand" id="home-button" type="button" aria-label="OpenTrivia home">
+          <span class="brand-mark" aria-hidden="true"><img src="ok-logo.svg" alt="" width="32" height="22" /></span>
+          <span class="brand-label" aria-hidden="true">OpenTrivia</span>
+        </button>
+        <nav class="main-nav" aria-label="Main navigation">
+          <button type="button" data-view="library" aria-label="Explore">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m16 8-2.5 5.5L8 16l2.5-5.5Z"/></svg>
+            <span class="nav-label" aria-hidden="true">Explore</span>
+          </button>
+          <button type="button" data-view="daily" aria-label="Daily trivia">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 10h18m-14 5 3 3 6-5"/></svg>
+            <span class="nav-label" aria-hidden="true">Daily trivia</span>
+          </button>
+          <button type="button" data-view="studio" aria-label="Create">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 5 5 5M4 20l5-1L21 7a2.1 2.1 0 0 0-5-5L4 14Z"/></svg>
+            <span class="nav-label" aria-hidden="true">Create</span>
+          </button>
+          <button type="button" data-view="join" aria-label="Join">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5M3 12h12m-5-5 5 5-5 5"/></svg>
+            <span class="nav-label" aria-hidden="true">Join</span>
+          </button>
+        </nav>
+      </aside>
 
     <main id="main">
+      <div class="view-actions">
+      <button class="button quiet" id="exit-play-button" type="button" hidden>Exit game</button>
+      </div>
       <section id="library-view" class="library-view" aria-labelledby="library-title">
         <div class="library-hero">
           <div>
-            <div class="eyebrow">Made for game night</div>
-            <h1 id="library-title">Find your next favorite trivia game.</h1>
-            <p>Pick a community-made board to play together, or host it and share a room code with friends.</p>
+            <h1 id="library-title">Find tonight's trivia game.</h1>
+            <p>Choose from community favorites to play together.</p>
           </div>
           <button class="button primary" id="hero-create-button" type="button">Create a game</button>
         </div>
@@ -54,7 +61,7 @@
 
       <section id="daily-view" class="daily-view" hidden aria-labelledby="daily-title">
         <div class="library-heading">
-          <div><div class="eyebrow">A little curiosity, every day</div><h1 id="daily-title">Daily trivia</h1><p id="daily-date"></p></div>
+          <div><h1 id="daily-title">Daily trivia</h1><p id="daily-date"></p></div>
           <button type="button" class="button quiet" id="daily-refresh">Refresh</button>
         </div>
         <p>Everyone plays the same question. A new question arrives at 2 AM EST (07:00 UTC), year-round.</p>
@@ -84,33 +91,21 @@
       </section>
 
       <section id="studio-view" class="studio-view" hidden aria-labelledby="studio-title">
-        <aside class="game-rail">
-          <div class="eyebrow">Game studio</div>
-          <label class="field-label" for="game-name">Game name</label>
-          <input class="game-name-input" id="game-name" maxlength="80" value="Untitled game" />
-          <label class="field-label" for="difficulty">Difficulty</label>
-          <select id="difficulty" class="compact-select">
-            <option value="easy">● Easy</option><option value="medium">■ Medium</option><option value="hard">◆ Hard</option>
-          </select>
-          <label class="field-label" for="player-count">Players</label>
-          <select id="player-count" class="compact-select"></select>
-          <label class="field-label" for="hero-image-input">Hero image</label>
-          <label class="image-upload" for="hero-image-input">
-            <img id="hero-image-preview" alt="" hidden />
-            <span id="hero-image-copy">Choose an image</span>
-          </label>
-          <input id="hero-image-input" type="file" accept="image/*" hidden />
-          <button class="text-button" id="remove-hero-button" type="button" hidden>Remove hero image</button>
+        <div class="studio-toolbar"><div class="studio-document"><label for="game-name">GAME STUDIO</label><input id="game-name" maxlength="80" aria-label="Game name" value="Untitled game" /><span id="save-status" role="status">Saved on this device</span></div>      <div class="top-actions" id="editor-actions" hidden>
 
-          <div class="rail-heading"><span>Rounds</span><span class="round-count" id="round-count">1</span></div>
-          <div id="board-list" class="board-list" role="list"></div>
-          <div class="add-rounds">
-            <button class="button secondary" id="add-board-button" type="button"><span aria-hidden="true">＋</span> Standard round</button>
-            <button class="button boss-button" id="add-boss-button" type="button"><span aria-hidden="true">✦</span> Boss round</button>
+        <div class="menu-wrap">
+          <button class="button quiet" id="export-button" type="button" aria-expanded="false">Files ▾</button>
+          <div class="export-menu" id="export-menu" hidden><button id="import-button" type="button">Import game</button>
+            <button type="button" id="export-board-button">Export round</button>
+            <button type="button" id="export-game-button">Export game</button>
           </div>
-          <p class="autosave-note"><span class="save-dot" aria-hidden="true"></span> Saved on this device</p>
-        </aside>
-
+        </div>
+        <button class="button quiet" id="settings-button" type="button">Settings</button><button class="button secondary" id="preview-button" type="button">Preview</button><button class="button secondary" id="publish-button" type="button">Publish</button>
+        <button class="button primary" id="play-button" type="button">Play <span aria-hidden="true">→</span></button>
+      </div>
+</div>
+        <div class="round-navigation"><div class="rounds-heading">Rounds <span id="round-count">1</span></div><nav id="board-list" aria-label="Game rounds"></nav><details class="round-add"><summary>Add round</summary><button class="button quiet" id="add-board-button" type="button">Standard round</button><button class="button quiet" id="add-boss-button" type="button">Boss round</button></details></div>
+        <div id="undo-notice" role="status" hidden><span>Round updated.</span><button type="button" id="undo-button">Undo</button></div>
         <section class="workspace">
           <div class="workspace-heading">
             <div>
@@ -119,13 +114,13 @@
               <p id="studio-help">Name each topic, then open a card to add its clue and response.</p>
             </div>
             <div class="size-controls" id="size-controls">
-              <label>Rows <select id="row-count"></select></label>
-              <label>Columns <select id="column-count"></select></label>
-              <button class="icon-button danger" id="delete-board-button" type="button" title="Delete this round" aria-label="Delete this round">×</button>
+              <label>Clues per topic <select id="row-count"></select></label>
+              <label>Topics <select id="column-count"></select></label>
+              <details class="round-options"><summary>Round options</summary><button class="button quiet" id="delete-board-button" type="button">Delete this round</button></details>
             </div>
           </div>
-          <div class="editor-board-wrap"><div class="editor-board" id="editor-board"></div></div>
-          <div class="legend"><span><i class="legend-dot complete"></i> Complete card</span><span><i class="legend-dot draft"></i> Needs content</span></div>
+          <label class="mobile-topic">Topic <select id="topic-selector"></select></label><div class="author-board" id="editor-board"></div>
+
         </section>
       </section>
 
@@ -163,23 +158,42 @@
         <div id="play-stage" class="play-stage"></div>
       </section>
     </main>
+    </div>
 
-    <dialog id="clue-dialog" class="dialog clue-dialog">
+        <dialog id="game-settings" class="studio-dialog" aria-labelledby="settings-title"><div class="dialog-topline"><h2 id="settings-title">Game settings</h2><button type="button" class="button quiet" data-close="game-settings">Done</button></div><p>Changes save automatically on this device.</p>          <label class="field-label" for="difficulty">Difficulty</label>
+          <select id="difficulty" class="compact-select">
+            <option value="easy">● Easy</option><option value="medium">■ Medium</option><option value="hard">◆ Hard</option>
+          </select>
+          <label class="field-label" for="player-count">Players</label>
+          <select id="player-count" class="compact-select"></select>
+          <label class="field-label" for="hero-image-input">Hero image</label>
+          <label class="image-upload" for="hero-image-input">
+            <img id="hero-image-preview" alt="" hidden />
+            <span id="hero-image-copy">Choose an image</span>
+          </label>
+          <input id="hero-image-input" type="file" accept="image/*" hidden />
+          <button class="text-button" id="remove-hero-button" type="button" hidden>Remove hero image</button>
+
+</dialog>
+<dialog id="clue-dialog" class="studio-dialog clue-dialog" aria-labelledby="clue-title">
       <form method="dialog" id="clue-form">
-        <div class="dialog-topline"><div><div class="eyebrow" id="clue-location">Topic · 200</div><h2>Edit card</h2></div><button class="icon-button" value="cancel" aria-label="Close">×</button></div>
-        <div id="clue-value-field"><label class="field-label" for="clue-value">Point value</label><input id="clue-value" name="value" type="number" step="1" /></div>
+        <div class="dialog-topline"><div><div class="eyebrow" id="clue-location">Topic · 200</div><h2 id="clue-title">Edit clue</h2></div><button class="icon-button" type="button" id="close-clue-button" aria-label="Close">×</button></div>
+        <div class="clue-fields"><p id="clue-save-status" role="status">Changes save when you select Save clue.</p><div id="clue-value-field"><label class="field-label" for="clue-value">Point value</label><input id="clue-value" name="value" type="number" step="1" /></div>
         <label class="field-label" for="clue-answer">Clue shown to players</label><textarea id="clue-answer" name="answer" rows="4" placeholder="e.g. This planet is famous for its rings"></textarea>
         <label class="field-label" for="clue-question">Correct response</label><textarea id="clue-question" name="question" rows="3" placeholder="e.g. What is Saturn?"></textarea>
-        <label class="field-label" for="clue-image-input">Clue image (optional)</label>
+        <details id="clue-attachment"><summary>Image attachment (optional)</summary><label class="field-label" for="clue-image-input">Choose an image</label>
         <div class="inline-upload"><input id="clue-image-input" type="file" accept="image/*" /><button class="button quiet" id="remove-clue-image" type="button" hidden>Remove</button></div>
         <img id="clue-image-preview" class="clue-image-preview" alt="Clue preview" hidden />
-        <div class="dialog-actions"><button class="button quiet" value="cancel" type="button" id="cancel-clue-button">Cancel</button><button class="button primary" value="save" type="submit">Save card</button></div>
+        </details></div><div class="dialog-actions"><button class="button quiet" value="cancel" type="button" id="cancel-clue-button">Cancel</button><button class="button primary" value="save" type="submit">Save clue</button><button class="button secondary" value="next" type="submit" id="save-next-button">Save &amp; next</button></div>
       </form>
     </dialog>
 
+    <dialog id="studio-confirm" class="studio-dialog" aria-labelledby="confirmation-message"><form method="dialog"><h2 id="confirmation-message"></h2><div class="dialog-actions"><button class="button quiet" value="cancel" autofocus>Keep editing</button><button class="button primary" id="confirmation-accept" value="accept">Continue</button></div></form></dialog>
+    <dialog id="author-preview" class="studio-dialog" aria-labelledby="preview-title"><div class="dialog-topline"><h2 id="preview-title">Round preview</h2><button type="button" class="button quiet" data-close="author-preview">Back to editing</button></div><div id="preview-content"></div></dialog>
+    <dialog id="publish-review" class="studio-dialog" aria-labelledby="publish-title"><h2 id="publish-title">Review your game</h2><p>Your game will be shared in the public library.</p><div id="publish-summary"></div><div class="dialog-actions"><button type="button" class="button quiet" data-close="publish-review">Keep editing</button><button type="button" class="button primary" id="confirm-publish">Publish publicly</button></div><p id="publish-error" role="alert"></p></dialog>
     <dialog id="card-dialog" class="dialog play-card-dialog"><div id="card-dialog-content"></div></dialog>
     <input id="file-input" type="file" accept="application/json,.json" hidden />
     <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
-    <script type="module" src="app.js?v=0.3.2"></script>
+    <script type="module" src="app.js?v=0.5.1"></script>
   </body>
 </html>

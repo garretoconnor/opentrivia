@@ -5,10 +5,10 @@ import {
   isBossBoard,
   setWager,
 } from "../core.mjs?v=0.3.1";
-import { api } from "./data.js";
-import { rateGame, recordLocalPlay } from "./library.js";
-import { $, elements, escapeHtml, formatText, switchView, toast } from "./render.js";
-import { saveGame, state } from "./state.js";
+import { api } from "./data.js?v=0.5.1";
+import { rateGame, recordLocalPlay } from "./library.js?v=0.5.1";
+import { $, elements, escapeHtml, formatText, switchView, toast } from "./render.js?v=0.5.1";
+import { saveGame, state } from "./state.js?v=0.5.1";
 
 let openHostedPlayCard = () => {};
 let closeHostedRoom = () => {};
