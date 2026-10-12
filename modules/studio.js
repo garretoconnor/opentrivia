@@ -10,8 +10,42 @@ import {
   normalizeGame,
   resizeBoard,
 } from "../core.mjs?v=0.3.1";
-import { $, elements, escapeHtml, fillNumberOptions, toast } from "./render.js";
-import { saveGame, state } from "./state.js";
+import { $, elements, escapeHtml, fillNumberOptions, toast } from "./render.js?v=0.5.1";
+import { saveGame as persistGame, state } from "./state.js?v=0.5.1";
+
+let undoState = null;
+let initialClue = "";
+let selectedTopic = 0;
+function saveGame(keepUndo = false) {
+  if (!keepUndo) { undoState = null; $("#undo-notice").hidden = true; }
+  return persistGame();
+}
+function rememberChange() {
+  undoState = { boards: structuredClone(state.game.boards), selected: state.selectedBoard };
+  $("#undo-notice").hidden = false;
+}
+function confirmChange(message, action) {
+  const dialog = $("#studio-confirm");
+  $("#confirmation-message").textContent = message;
+  $("#confirmation-accept").textContent = action;
+  dialog.returnValue = "cancel";
+  return new Promise(resolve => {
+    dialog.addEventListener("close", () => resolve(dialog.returnValue === "accept"), { once: true });
+    dialog.showModal();
+  });
+}
+function clueDraft() {
+  return JSON.stringify([$("#clue-value").value, $("#clue-answer").value, $("#clue-question").value, state.pendingClueImage]);
+}
+async function dismissClue() {
+  if (clueDraft() !== initialClue && !await confirmChange("Discard unsaved changes to this clue?", "Discard changes")) return;
+  elements.clueDialog.close();
+  focusClue();
+}
+function focusClue() {
+  const { columnIndex, row } = state.editingClue;
+  elements.editorBoard.querySelector(`[data-column="${columnIndex}"][data-row="${row}"]`)?.focus();
+}
 
 export function renderStudio() {
   const board = state.game.boards[state.selectedBoard];
@@ -26,10 +60,10 @@ export function renderStudio() {
   elements.roundCount.textContent = String(state.game.boards.length);
   elements.deleteBoard.disabled = state.game.boards.length === 1;
   elements.roundKicker.textContent = `Round ${state.selectedBoard + 1} · ${boss ? "Boss" : "Standard"}`;
-  elements.studioTitle.textContent = boss ? "Build the Boss round" : "Build your board";
+  elements.studioTitle.textContent = boss ? "Boss round" : "Write your clues";
   elements.studioHelp.textContent = boss
     ? "The topic appears first; wagers are locked before the clue is revealed."
-    : "Name each topic, then open a card to add its clue and response.";
+    : "Name your topics and select a clue to edit. Changes to topics save automatically.";
   elements.rowCount.closest("label").hidden = boss;
   elements.columnCount.closest("label").hidden = boss;
   if (!boss) {
@@ -46,10 +80,11 @@ function renderBoardList() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `board-list-item${index === state.selectedBoard ? " active" : ""}${boss ? " boss" : ""}`;
-    button.setAttribute("role", "listitem");
+
     button.setAttribute("aria-current", index === state.selectedBoard ? "true" : "false");
-    const topic = board.columns[0]?.topic?.trim();
-    button.innerHTML = `<span class="round-number">${boss ? "✦" : index + 1}</span><span><span class="round-label">${escapeHtml(topic || `Round ${index + 1}`)}</span><span class="round-type">${boss ? "Boss round" : `${board.columns.length} topics`}</span></span>`;
+    const clues = board.columns.flatMap(column => column.clues);
+    const completed = clues.filter(clue => clue.answer.trim() && clue.question.trim()).length;
+    button.innerHTML = `<span class="round-number">${boss ? "✦" : index + 1}</span><span><span class="round-label">${boss ? "Boss round" : `Round ${index + 1}`}</span><span class="round-type">${completed}/${clues.length} complete</span></span>`;
     button.addEventListener("click", () => {
       state.selectedBoard = index;
       renderStudio();
@@ -61,45 +96,49 @@ function renderBoardList() {
 export function renderEditorBoard() {
   const board = state.game.boards[state.selectedBoard];
   const boss = isBossBoard(board);
-  const rows = Math.max(...board.columns.map((column) => column.size));
-  elements.editorBoard.style.gridTemplateColumns = `repeat(${board.columns.length}, minmax(100px, 1fr))`;
-  const nodes = [];
-  board.columns.forEach((column, columnIndex) => {
+  selectedTopic = Math.min(selectedTopic, board.columns.length - 1);
+  const selector = $("#topic-selector");
+  selector.replaceChildren(...board.columns.map((column, index) => new Option(column.topic || `Topic ${index + 1}`, index)));
+  selector.value = selectedTopic;
+  elements.editorBoard.style.setProperty("--topic-count", Math.min(board.columns.length, 5));
+  elements.editorBoard.replaceChildren(...board.columns.map((column, columnIndex) => {
+    const section = document.createElement("section");
+    section.className = `author-topic${columnIndex === selectedTopic ? " selected-topic" : ""}`;
+    const label = document.createElement("label");
+    label.className = "topic-label";
+    label.textContent = boss ? "Boss topic" : `Topic ${columnIndex + 1}`;
     const input = document.createElement("input");
-    input.className = "topic-input";
     input.value = column.topic;
-    input.placeholder = `Topic ${columnIndex + 1}`;
+    input.placeholder = "Name this topic";
     input.maxLength = 80;
-    input.setAttribute("aria-label", `Column ${columnIndex + 1} topic`);
     input.addEventListener("input", () => {
       column.topic = input.value;
+      selector.options[columnIndex].textContent = column.topic || `Topic ${columnIndex + 1}`;
       saveGame();
-      renderBoardList();
     });
-    nodes.push(input);
-  });
-  for (let row = 0; row < rows; row += 1) {
-    board.columns.forEach((column, columnIndex) => {
-      if (row >= column.size) {
-        const blank = document.createElement("span");
-        blank.setAttribute("aria-hidden", "true");
-        nodes.push(blank);
-        return;
-      }
-      const clue = column.clues[row];
-      const complete = clue.answer.trim() && clue.question.trim();
+    label.append(input);
+    section.append(label);
+    column.clues.forEach((clue, row) => {
+      const status = !clue.answer.trim() ? "Empty clue" : !clue.question.trim() ? "Needs response" : "Complete";
       const button = document.createElement("button");
       button.type = "button";
-      button.className = `clue-cell ${complete ? "complete" : "empty"}`;
-      button.textContent = boss ? "Edit clue" : clue.value.toLocaleString();
-      button.setAttribute("aria-label", boss
-        ? `${column.topic || "Boss topic"} clue${complete ? ", complete" : ", needs content"}`
-        : `${column.topic || `Topic ${columnIndex + 1}`} for ${clue.value} points${complete ? ", complete" : ", needs content"}`);
+      button.className = `author-clue${status === "Complete" ? " complete" : ""}`;
+      button.dataset.column = columnIndex;
+      button.dataset.row = row;
+      button.setAttribute("aria-label", `${column.topic || "Topic"}, ${boss ? "Boss clue" : `${clue.value} points`}, ${status}`);
+      button.innerHTML = `<span class="clue-points">${boss ? "Wager clue" : `${clue.value.toLocaleString()} pts`}</span><span class="clue-excerpt">${escapeHtml(clue.answer || "Add a clue…")}</span><span class="clue-status">${status === "Complete" ? "✓ " : "○ "}${status}${clue.image ? " · Image" : ""}</span>`;
       button.addEventListener("click", () => openClueEditor(columnIndex, row));
-      nodes.push(button);
+      section.append(button);
     });
-  }
-  elements.editorBoard.replaceChildren(...nodes);
+    return section;
+  }));
+}
+
+export function editStudioClue(boardIndex, columnIndex, row) {
+  state.selectedBoard = boardIndex;
+  selectedTopic = columnIndex;
+  renderStudio();
+  openClueEditor(columnIndex, row);
 }
 
 function openClueEditor(columnIndex, row) {
@@ -117,7 +156,10 @@ function openClueEditor(columnIndex, row) {
   $("#clue-question").value = clue.question;
   state.pendingClueImage = clue.image || "";
   renderClueImagePreview();
-  elements.clueDialog.showModal();
+  initialClue = clueDraft();
+  $("#clue-save-status").textContent = "Changes save when you select Save clue.";
+  $("#clue-attachment").open = false;
+  if (!elements.clueDialog.open) elements.clueDialog.showModal();
   $("#clue-answer").focus();
 }
 
@@ -168,9 +210,14 @@ function addBoard(boss = false) {
   toast(`${boss ? "Boss" : "Standard"} round added.`);
 }
 
-function updateBoardSize() {
-  resizeBoard(state.game.boards[state.selectedBoard], Number(elements.rowCount.value), Number(elements.columnCount.value));
-  saveGame();
+async function updateBoardSize() {
+  const board = state.game.boards[state.selectedBoard];
+  const rows = Number(elements.rowCount.value), columns = Number(elements.columnCount.value);
+  const removed = board.columns.flatMap((column, index) => column.clues.filter((clue, row) => (index >= columns || row >= rows) && (clue.answer.trim() || clue.question.trim() || clue.image))).length;
+  if (removed && !await confirmChange(`This removes ${removed} authored clue(s). You can undo this change.`, "Remove clues")) { renderStudio(); return; }
+  rememberChange();
+  resizeBoard(board, rows, columns);
+  saveGame(true);
   renderStudio();
 }
 
@@ -238,26 +285,43 @@ export function initStudio() {
   elements.columnCount.addEventListener("change", updateBoardSize);
   $("#add-board-button").addEventListener("click", () => addBoard(false));
   $("#add-boss-button").addEventListener("click", () => addBoard(true));
-  elements.deleteBoard.addEventListener("click", () => {
+  elements.deleteBoard.addEventListener("click", async () => {
     if (state.game.boards.length === 1) return;
+    if (!await confirmChange("Delete this round? You can undo this change.", "Delete round")) return;
+    rememberChange();
     state.game.boards.splice(state.selectedBoard, 1);
     state.selectedBoard = Math.min(state.selectedBoard, state.game.boards.length - 1);
-    saveGame();
+    saveGame(true);
     renderStudio();
-    toast("Round deleted.");
+    toast("Round deleted. Undo is available above the editor.");
   });
   elements.clueForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const clue = state.game.boards[state.selectedBoard].columns[state.editingClue.columnIndex].clues[state.editingClue.row];
+    const previous = structuredClone(clue);
     if (isBossBoard(state.game.boards[state.selectedBoard])) delete clue.value;
     else clue.value = Number($("#clue-value").value);
     clue.answer = $("#clue-answer").value;
     clue.question = $("#clue-question").value;
     clue.image = state.pendingClueImage;
-    saveGame();
-    elements.clueDialog.close();
+    if (!saveGame()) {
+      for (const key of Object.keys(clue)) delete clue[key];
+      Object.assign(clue, previous);
+      $("#clue-save-status").textContent = "Could not save. Free up device storage and try again. Your edits are still here.";
+      return;
+    }
     renderEditorBoard();
-    toast("Card saved.");
+    renderBoardList();
+    if (event.submitter?.value === "next") {
+      const board = state.game.boards[state.selectedBoard];
+      let { columnIndex, row } = state.editingClue;
+      row += 1;
+      if (row >= board.columns[columnIndex].clues.length) { row = 0; columnIndex += 1; }
+      if (columnIndex < board.columns.length) { selectedTopic = columnIndex; renderEditorBoard(); openClueEditor(columnIndex, row); return; }
+    }
+    elements.clueDialog.close();
+    focusClue();
+    toast("Clue saved.");
   });
   $("#clue-image-input").addEventListener("change", async (event) => {
     const input = event.currentTarget;
@@ -270,7 +334,25 @@ export function initStudio() {
     input.value = "";
   });
   $("#remove-clue-image").addEventListener("click", () => { state.pendingClueImage = ""; renderClueImagePreview(); });
-  $("#cancel-clue-button").addEventListener("click", () => elements.clueDialog.close());
+  $("#cancel-clue-button").addEventListener("click", dismissClue);
+  $("#close-clue-button").addEventListener("click", dismissClue);
+  elements.clueDialog.addEventListener("cancel", event => { event.preventDefault(); dismissClue(); });
+  elements.clueForm.addEventListener("input", () => { $("#clue-save-status").textContent = "Unsaved changes"; });
+  $("#settings-button").addEventListener("click", () => $("#game-settings").showModal());
+  document.querySelectorAll("[data-close]").forEach(button => button.addEventListener("click", () => document.getElementById(button.dataset.close).close()));
+  $("#topic-selector").addEventListener("change", event => { selectedTopic = Number(event.target.value); renderEditorBoard(); });
+  $("#undo-button").addEventListener("click", () => {
+    if (!undoState) return;
+    state.game.boards = undoState.boards;
+    state.selectedBoard = undoState.selected;
+    saveGame();
+    renderStudio();
+  });
+  $("#preview-button").addEventListener("click", () => {
+    const board = state.game.boards[state.selectedBoard];
+    $("#preview-content").innerHTML = board.columns.map(column => `<section><h3>${escapeHtml(column.topic || "Untitled topic")}</h3>${column.clues.map(clue => `<article class="preview-clue"><span class="clue-points">${clue.value ? `${clue.value} points` : "Boss wager"}</span><p>${escapeHtml(clue.answer || "No clue yet")}</p>${clue.image ? `<img src="${escapeHtml(clue.image)}" alt="Clue image" />` : ""}<details><summary>Reveal response</summary><p>${escapeHtml(clue.question || "No response yet")}</p></details></article>`).join("")}</section>`).join("");
+    $("#author-preview").showModal();
+  });
   $("#import-button").addEventListener("click", () => elements.fileInput.click());
   elements.fileInput.addEventListener("change", () => { if (elements.fileInput.files[0]) importFile(elements.fileInput.files[0]); });
   elements.exportButton.addEventListener("click", () => {

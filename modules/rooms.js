@@ -1,6 +1,6 @@
 import { TriviaRoom } from "../api.mjs?v=0.3.1";
-import { allowsLocalFallback, api } from "./data.js";
-import { state } from "./state.js";
+import { allowsLocalFallback, api } from "./data.js?v=0.5.1";
+import { state } from "./state.js?v=0.5.1";
 
 const LOCAL_ROOMS_KEY = "opentrivia.rooms.v0.3";
 const localRoomObjects = new Map();

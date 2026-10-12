@@ -1,11 +1,11 @@
-import { initDaily, loadDaily } from "./modules/daily.js";
-import { closeHostedRoom, hostPublished, initHost, openHostedPlayCard } from "./modules/host.js";
-import { initLibrary, loadLibrary } from "./modules/library.js";
-import { initLocalPlay, showSetup } from "./modules/local-play.js";
-import { initPlayer } from "./modules/player.js";
-import { $, configureViewRenderers, elements, switchView } from "./modules/render.js";
-import { initStudio, renderStudio } from "./modules/studio.js";
-import { state } from "./modules/state.js";
+import { initDaily, loadDaily } from "./modules/daily.js?v=0.5.1";
+import { closeHostedRoom, hostPublished, initHost, openHostedPlayCard } from "./modules/host.js?v=0.5.1";
+import { initLibrary, loadLibrary } from "./modules/library.js?v=0.5.1";
+import { initLocalPlay, showSetup } from "./modules/local-play.js?v=0.5.1";
+import { initPlayer } from "./modules/player.js?v=0.5.1";
+import { $, configureViewRenderers, elements, switchView } from "./modules/render.js?v=0.5.1";
+import { initStudio, renderStudio } from "./modules/studio.js?v=0.5.1";
+import { state } from "./modules/state.js?v=0.5.1";
 
 initDaily();
 initStudio();

@@ -10,7 +10,7 @@ test("deployed Worker serves the entire browser module graph", async () => {
   const root = fileURLToPath(new URL("../", import.meta.url));
   const directory = await mkdtemp(join(tmpdir(), "opentrivia-build-"));
   try {
-    for (const file of ["package.json", "scripts", "modules", "index.html", "styles.css", "app.js", "core.mjs", "api.mjs", "daily.mjs"]) {
+    for (const file of ["package.json", "scripts", "modules", "index.html", "ok-logo.svg", "favicon.svg", "styles.css", "studio.css", "app.js", "core.mjs", "api.mjs", "daily.mjs"]) {
       await cp(join(root, file), join(directory, file), { recursive: true });
     }
     execFileSync(process.execPath, ["scripts/build.mjs"], { cwd: directory });
@@ -19,6 +19,12 @@ test("deployed Worker serves the entire browser module graph", async () => {
     const page = await worker.fetch(new Request(origin), {});
     assert.equal(page.status, 200);
     const html = await page.text();
+    for (const asset of ["ok-logo.svg", "favicon.svg"]) {
+      const response = await worker.fetch(new Request(new URL(asset, origin)), {});
+      assert.equal(response.status, 200, `Brand asset must be served: ${asset}`);
+      assert.match(response.headers.get("content-type"), /image\/svg\+xml/);
+      assert.match(await response.text(), /<svg\b/);
+    }
     const entry = html.match(/<script\b[^>]*type="module"[^>]*src="([^"]+)"/);
     assert.ok(entry, "HTML includes a browser module entrypoint");
     const pending = [new URL(entry[1], origin).href];

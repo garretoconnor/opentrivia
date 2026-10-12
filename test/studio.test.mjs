@@ -1,0 +1,98 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createGame } from '../core.mjs';
+
+// Minimal DOM adapter: exercise the real editor event handlers and persisted data.
+class Element {
+  constructor() { this.value = ''; this.dataset = {}; this.children = []; this.listeners = {}; this.style = { setProperty() {} }; }
+  addEventListener(type, fn, options) { (this.listeners[type] ||= []).push({ fn, once: options?.once }); }
+  async fire(type, extra = {}) {
+    const handlers = [...(this.listeners[type] || [])];
+    this.listeners[type] = (this.listeners[type] || []).filter(item => !item.once);
+    await Promise.all(handlers.map(({ fn }) => fn({ target: this, preventDefault() {}, ...extra })));
+  }
+  setAttribute() {}
+  append(...children) { this.children.push(...children); }
+  replaceChildren(...children) { this.children = children; }
+  get options() { return this.children; }
+  closest() { return this; }
+  querySelector() { return null; }
+  showModal() { this.open = true; }
+  close(value) { if (value !== undefined) this.returnValue = value; this.open = false; void this.fire('close'); }
+  focus() { document.activeElement = this; }
+  remove() {}
+}
+const nodes = new Map();
+const get = id => { if (!nodes.has(id)) nodes.set(id, new Element()); return nodes.get(id); };
+globalThis.document = { querySelector: get, getElementById: id => get(`#${id}`), querySelectorAll: () => [], createElement: () => new Element(), addEventListener() {} };
+globalThis.Option = class extends Element { constructor(text, value) { super(); this.textContent = text; this.value = String(value); } };
+const storage = new Map();
+let failSave = false;
+globalThis.localStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => { if (failSave) throw new Error('Quota exceeded'); storage.set(key, value); } };
+const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.5.1');
+const { initStudio, renderStudio, editStudioClue } = await import('../modules/studio.js');
+initStudio();
+function reset() { failSave = false; state.game = createGame(); state.authoredGame = state.game; state.selectedBoard = 0; renderStudio(); saveGame(); }
+const clue = () => state.game.boards[0].columns[0].clues[0];
+
+test('dirty dismissal can keep editing or discard without committing', async () => {
+  reset(); editStudioClue(0, 0, 0);
+  const before = storage.get(STORAGE_KEY);
+  get('#clue-answer').value = 'Unsaved clue';
+  let pending = get('#close-clue-button').fire('click');
+  assert.equal(get('#studio-confirm').open, true);
+  get('#studio-confirm').close('cancel'); await pending;
+  assert.equal(get('#clue-dialog').open, true);
+  pending = get('#clue-dialog').fire('cancel');
+  get('#studio-confirm').close('accept'); await pending;
+  assert.equal(get('#clue-dialog').open, false);
+  assert.equal(storage.get(STORAGE_KEY), before);
+});
+
+test('save and next persists the clue and advances editing', async () => {
+  reset(); editStudioClue(0, 0, 0);
+  get('#clue-answer').value = 'A test clue'; get('#clue-question').value = 'A response';
+  await get('#clue-form').fire('submit', { submitter: { value: 'next' } });
+  assert.equal(clue().answer, 'A test clue');
+  assert.equal(JSON.parse(storage.get(STORAGE_KEY)).boards[0].columns[0].clues[0].question, 'A response');
+  assert.equal(state.editingClue.row, 1);
+  assert.equal(get('#clue-dialog').open, true);
+});
+
+test('storage failure keeps the editor draft open and does not commit it', async () => {
+  reset(); editStudioClue(0, 0, 0); const before = structuredClone(clue());
+  get('#clue-answer').value = 'Keep this draft'; failSave = true;
+  await get('#clue-form').fire('submit', { submitter: { value: 'save' } });
+  assert.deepEqual(clue(), before);
+  assert.equal(get('#clue-dialog').open, true);
+  assert.equal(get('#clue-answer').value, 'Keep this draft');
+  assert.match(get('#clue-save-status').textContent, /Could not save/);
+  assert.equal(get('#save-status').dataset.error, 'true');
+  failSave = false;
+});
+
+test('shrinking populated topics requires consent and supports undo', async () => {
+  reset(); const board = state.game.boards[0];
+  board.columns[1].clues[0].answer = 'Preserve this'; saveGame();
+  const before = structuredClone(board);
+  get('#column-count').value = '1';
+  let pending = get('#column-count').fire('change');
+  get('#studio-confirm').close('cancel'); await pending;
+  assert.deepEqual(state.game.boards[0], before);
+  get('#column-count').value = '1';
+  pending = get('#column-count').fire('change');
+  get('#studio-confirm').close('accept'); await pending;
+  assert.equal(state.game.boards[0].columns.length, 1);
+  await get('#undo-button').fire('click');
+  assert.deepEqual(state.game.boards[0], before);
+});
+
+test('deleting a round can be undone with its content intact', async () => {
+  reset(); await get('#add-board-button').fire('click');
+  const before = structuredClone(state.game.boards);
+  const pending = get('#delete-board-button').fire('click');
+  get('#studio-confirm').close('accept'); await pending;
+  assert.equal(state.game.boards.length, before.length - 1);
+  await get('#undo-button').fire('click');
+  assert.deepEqual(state.game.boards, before);
+});

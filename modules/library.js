@@ -1,7 +1,8 @@
+import { editStudioClue } from "./studio.js?v=0.5.1";
 import { difficultySymbol, normalizeGame } from "../core.mjs?v=0.3.1";
-import { allowsLocalFallback, api } from "./data.js";
-import { $, elements, escapeHtml, switchView, toast } from "./render.js";
-import { localLibrary, saveGame, saveLocalLibrary, state, voterId } from "./state.js";
+import { allowsLocalFallback, api } from "./data.js?v=0.5.1";
+import { $, elements, escapeHtml, switchView, toast } from "./render.js?v=0.5.1";
+import { localLibrary, saveGame, saveLocalLibrary, state, voterId } from "./state.js?v=0.5.1";
 
 let showSetup = () => {};
 let hostPublishedGame = () => {};
@@ -9,7 +10,13 @@ let hostPublishedGame = () => {};
 export function initLibrary(dependencies) {
   showSetup = dependencies.showSetup;
   hostPublishedGame = dependencies.hostPublished;
-  $("#publish-button").addEventListener("click", publishGame);
+  $("#publish-button").addEventListener("click", reviewPublication);
+  $("#confirm-publish").addEventListener("click", async () => {
+    const button = $("#confirm-publish");
+    button.disabled = true;
+    try { await publishGame(); } catch (error) { $("#publish-error").textContent = error.message; }
+    finally { button.disabled = false; }
+  });
   $("#refresh-library-button").addEventListener("click", loadLibrary);
 }
 
@@ -91,16 +98,34 @@ async function playPublished(id) {
   }
 }
 
+function reviewPublication() {
+  const clues = state.game.boards.flatMap(board => board.columns.flatMap(column => column.clues));
+  const missing = [];
+  state.game.boards.forEach((board, boardIndex) => board.columns.forEach((column, columnIndex) => column.clues.forEach((clue, row) => {
+    if (!clue.answer.trim() || !clue.question.trim()) missing.push({ boardIndex, columnIndex, row, label: `Round ${boardIndex + 1} · ${column.topic || "Untitled topic"} · Clue ${row + 1}` });
+  })));
+  $("#publish-error").textContent = "";
+  $("#publish-summary").innerHTML = `<h3>${escapeHtml(state.game.name || "Untitled game")}</h3>${state.game.hero_image ? `<img src="${escapeHtml(state.game.hero_image)}" alt="Game cover" />` : ""}<p>${state.game.boards.length} rounds · ${clues.length - missing.length}/${clues.length} clues complete</p>${missing.length ? '<p>Finish these clues before publishing:</p><ul class="publish-issues"></ul>' : '<p>All clues have a clue and a correct response.</p>'}`;
+  missing.forEach(item => {
+    const li = document.createElement("li"), button = document.createElement("button");
+    button.type = "button"; button.textContent = item.label;
+    button.addEventListener("click", () => { $("#publish-review").close(); editStudioClue(item.boardIndex, item.columnIndex, item.row); });
+    li.append(button); $(".publish-issues").append(li);
+  });
+  $("#confirm-publish").disabled = missing.length > 0;
+  $("#publish-review").showModal();
+}
+
 async function publishGame() {
   state.game.name = elements.gameName.value.trim() || "Untitled game";
-  saveGame();
+  if (!saveGame()) throw new Error("Save failed. Check device storage before publishing.");
   const clean = normalizeGame({ ...state.game, size: state.game.boards.length });
   try {
     const result = await api("/api/games", { method: "POST", body: JSON.stringify({ game: clean }) });
     toast(`“${result.game.title}” is now public.`);
   } catch (error) {
     if (!allowsLocalFallback(error)) {
-      toast(error.message, true);
+      $("#publish-error").textContent = error.message;
       return;
     }
     const games = localLibrary();
@@ -108,6 +133,7 @@ async function publishGame() {
     saveLocalLibrary(games);
     toast(`“${clean.name}” was published to this local preview.`);
   }
+  $("#publish-review").close();
   switchView("library");
 }
 

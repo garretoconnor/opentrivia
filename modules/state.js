@@ -35,7 +35,15 @@ export const state = {
 
 export function saveGame() {
   state.game.size = state.game.boards.length;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.game));
+  const status = typeof document !== "undefined" ? document.getElementById("save-status") : null;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.game));
+    if (status) { status.textContent = "Saved on this device"; status.dataset.error = "false"; }
+    return true;
+  } catch {
+    if (status) { status.textContent = "Not saved — device storage unavailable"; status.dataset.error = "true"; }
+    return false;
+  }
 }
 
 export function localLibrary() {
