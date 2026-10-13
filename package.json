@@ -9,9 +9,12 @@
     "build": "node scripts/build.mjs",
     "dev:worker": "cf dev",
     "build:worker": "cf build",
-    "deploy": "cf deploy"
+    "deploy": "npm run build:worker && npm run deploy:prebuilt",
+    "deploy:prebuilt": "node scripts/deploy-prebuilt.mjs"
   },
   "devDependencies": {
+    "@cloudflare/build-output-utils": "0.8.5",
+    "@cloudflare/config": "0.23.0",
     "cf": "^1.0.0-beta.12",
     "wrangler": "^4.147.0"
   }

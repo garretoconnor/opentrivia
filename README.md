@@ -35,7 +35,7 @@ npm run build:worker
 npm run deploy
 ```
 
-`npm run build:worker` packages the Worker locally. `npm run deploy` builds and deploys it. The remote migration command changes the production database. The migration directory remains `migrations/`, and the migration tracking table remains `d1_migrations`.
+`npm run build:worker` packages the Worker locally. `npm run deploy` builds and deploys it. `npm run deploy:prebuilt` deploys the existing validated build without rebuilding. The remote migration command changes the production database. The migration directory remains `migrations/`, and the migration tracking table remains `d1_migrations`.
 
 ### Manual deployment button
 
@@ -43,7 +43,9 @@ After this workflow is merged, open **Actions → Deploy built Worker → Run wo
 
 First, add a repository Actions secret named `CLOUDFLARE_API_TOKEN` in **Settings → Secrets and variables → Actions**. Use a Cloudflare API token for the configured account with Worker deployment and D1 migration permissions. The account ID is already in `cloudflare.config.ts`. Your local Cloudflare sign-in is not available on GitHub runners. Never put the token in a file or PR.
 
-The action checks the credential, installs locked dependencies, runs tests, builds the Worker, and validates the build. It then applies pending production database migrations and deploys that exact build with `cf deploy --prebuilt`. A failed step stops deployment. If deployment fails after a migration, that migration remains applied. Keep schema changes compatible with the running Worker.
+The action checks the credential, installs locked dependencies, runs tests, builds the Worker, and validates the build. It then applies pending production database migrations and deploys that exact build with `npm run deploy:prebuilt`. A failed step stops deployment. If deployment fails after a migration, that migration remains applied. Keep schema changes compatible with the running Worker.
+
+The prebuilt deployment script reads the validated Cloudflare Build Output and generates a git-ignored Wrangler configuration from it. Wrangler uploads the existing bundle with bundling disabled. This avoids the pinned `cf` CLI’s forced strict mode, which can reject equivalent binding metadata after a Dashboard change (for example, setting the admin secret). The repository’s bindings remain authoritative; Dashboard variables and Worker secrets are preserved. Validation uses `npm run deploy:prebuilt -- --dry-run` and does not contact the production Worker, so it cannot verify remote permissions or deployment success.
 
 Only manual runs from `main` can deploy. Deployments do not run on merges. Concurrent deployment runs are serialized. This button creates a fresh tested build from the selected main revision; it does not select an artifact from a prior CI run.
 
