@@ -7,7 +7,7 @@ import { handleDaily } from '../daily.mjs';
 
 function setup() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0001_v0_2.sql', '0002_daily_trivia.sql', '0003_consistent_question_content.sql']) {
+  for (const file of ['0001_v0_2.sql', '0002_daily_trivia.sql', '0003_consistent_question_content.sql', '0004_daily_timing.sql']) {
     db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   }
   const DB = { prepare(sql) {
@@ -71,7 +71,8 @@ test('added questions enter the daily queue and answers remain private', async (
   assert.deepEqual(bank.counts, { total: 2, drafts: 1, ready: 1, used: 0 });
   const daily = await handleDaily(new Request('https://example.test/api/daily'), c.env, () => Date.parse('2026-10-13T12:00:00Z'));
   const state = await daily.json();
-  assert.equal(state.question.clue, ready.clue);
+  assert.deepEqual(state.question, { topic: ready.topic });
+  assert.equal(c.db.prepare('SELECT clue FROM daily_challenges').get().clue, ready.clue);
   assert.equal(JSON.stringify(state).includes(ready.answer), false);
   assert.equal(JSON.stringify(state).includes('Alias'), false);
   assert.equal((await c.call('PATCH', { id: ready.id, enabled: false })).status, 409);
@@ -80,5 +81,6 @@ test('added questions enter the daily queue and answers remain private', async (
   assert.deepEqual(bank.counts, { total: 2, drafts: 0, ready: 1, used: 1 });
   assert.equal(bank.questions.find(q => q.id === ready.id).used_on, '2026-10-13');
   const tomorrow = await handleDaily(new Request('https://example.test/api/daily'), c.env, () => Date.parse('2026-10-14T12:00:00Z'));
-  assert.equal((await tomorrow.json()).question.clue, draft.clue);
+  assert.deepEqual((await tomorrow.json()).question, { topic: draft.topic });
+  assert.equal(c.db.prepare("SELECT clue FROM daily_challenges WHERE day = '2026-10-14'").get().clue, draft.clue);
 });

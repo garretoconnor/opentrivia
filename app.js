@@ -1,4 +1,4 @@
-import { initDaily, loadDaily } from "./modules/daily.js?v=0.6.0";
+import { initDaily, loadDaily } from "./modules/daily.js?v=0.7.0";
 import { closeHostedRoom, hostPublished, initHost, openHostedPlayCard } from "./modules/host.js?v=0.6.0";
 import { initLibrary, loadLibrary } from "./modules/library.js?v=0.6.0";
 import { initLocalPlay, showSetup } from "./modules/local-play.js?v=0.6.0";

@@ -66,18 +66,17 @@
         </div>
         <p>Everyone plays the same question. A new question arrives at 2 AM EST (07:00 UTC), year-round.</p>
         <div id="daily-error" role="alert"></div>
-        <article class="daily-card" aria-labelledby="daily-question">
+        <article class="daily-card" aria-labelledby="daily-topic">
           <p id="daily-status" role="status">Loading today’s question…</p>
           <p class="eyebrow" id="daily-topic"></p>
           <img class="play-clue-image" id="daily-image" alt="Image for today's clue" hidden />
-          <h2 id="daily-question"></h2>
+          <button type="button" class="button primary" id="daily-play" hidden>Play</button>
+          <p id="daily-timer" hidden></p>
+          <h2 id="daily-question" hidden></h2>
           <p id="daily-identity" class="muted"></p>
-          <form id="daily-player-form" hidden>
+          <form id="daily-answer-form" hidden>
             <label class="field-label" for="daily-name">Leaderboard name</label>
             <input id="daily-name" autocomplete="nickname" maxlength="30" required />
-            <button type="submit" class="button primary">Join daily trivia</button>
-          </form>
-          <form id="daily-answer-form" hidden>
             <label class="field-label" for="daily-answer">Your answer</label>
             <input id="daily-answer" maxlength="300" autocomplete="off" required aria-describedby="daily-answer-help" />
             <p id="daily-answer-help" class="muted">You get one submission. Capitalization and extra spaces don’t matter.</p>
@@ -85,7 +84,7 @@
           </form>
           <div id="daily-result" role="status" hidden></div>
         </article>
-        <p class="muted">Leaderboards show the top 100 players. Equal points share a rank.</p>
+        <p class="muted">Fastest correct answers with valid times rank first. Season rankings use average completion time. Equal times share a rank; the top 100 players are shown.</p>
         <div class="daily-leaderboards">
           <section class="daily-card" aria-labelledby="daily-board-title"><h2 id="daily-board-title">Today’s leaderboard</h2><div id="daily-board"></div></section>
           <section class="daily-card" aria-labelledby="daily-season-title"><h2 id="daily-season-title">Season leaderboard</h2><div id="season-board"></div></section>
@@ -201,6 +200,6 @@
     <dialog id="card-dialog" class="dialog play-card-dialog"><div id="card-dialog-content"></div></dialog>
     <input id="file-input" type="file" accept="application/json,.json" hidden />
     <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
-    <script type="module" src="app.js?v=0.6.0"></script>
+    <script type="module" src="app.js?v=0.7.0"></script>
   </body>
 </html>
