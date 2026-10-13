@@ -1,5 +1,8 @@
 import {
   DIFFICULTIES,
+  applyRowValues,
+  defaultRowValues,
+  reorderClue,
   LIMITS,
   createBoard,
   createBossBoard,
@@ -9,13 +12,14 @@ import {
   normalizeBoard,
   normalizeGame,
   resizeBoard,
-} from "../core.mjs?v=0.3.1";
-import { $, elements, escapeHtml, fillNumberOptions, toast } from "./render.js?v=0.5.1";
-import { saveGame as persistGame, state } from "./state.js?v=0.5.1";
+} from "../core.mjs?v=0.3.2";
+import { $, elements, escapeHtml, fillNumberOptions, toast } from "./render.js?v=0.5.2";
+import { saveGame as persistGame, state } from "./state.js?v=0.5.2";
 
 let undoState = null;
 let initialClue = "";
 let selectedTopic = 0;
+let draggedClue = null;
 function saveGame(keepUndo = false) {
   if (!keepUndo) { undoState = null; $("#undo-notice").hidden = true; }
   return persistGame();
@@ -35,7 +39,7 @@ function confirmChange(message, action) {
   });
 }
 function clueDraft() {
-  return JSON.stringify([$("#clue-value").value, $("#clue-answer").value, $("#clue-question").value, state.pendingClueImage]);
+  return JSON.stringify([$("#clue-answer").value, $("#clue-question").value, state.pendingClueImage]);
 }
 async function dismissClue() {
   if (clueDraft() !== initialClue && !await confirmChange("Discard unsaved changes to this clue?", "Discard changes")) return;
@@ -50,6 +54,8 @@ function focusClue() {
 export function renderStudio() {
   const board = state.game.boards[state.selectedBoard];
   const boss = isBossBoard(board);
+  applyRowValues(state.game);
+  $("#adult-content").checked = state.game.adult_content;
   elements.gameName.value = state.game.name;
   elements.playerCount.value = String(state.game.num_players);
   elements.difficulty.value = state.game.difficulty;
@@ -63,7 +69,7 @@ export function renderStudio() {
   elements.studioTitle.textContent = boss ? "Boss round" : "Write your clues";
   elements.studioHelp.textContent = boss
     ? "The topic appears first; wagers are locked before the clue is revealed."
-    : "Name your topics and select a clue to edit. Changes to topics save automatically.";
+    : "Select a clue to edit. Drag its handle to reorder within a topic, or focus the handle and use the arrow keys.";
   elements.rowCount.closest("label").hidden = boss;
   elements.columnCount.closest("label").hidden = boss;
   if (!boss) {
@@ -128,9 +134,84 @@ export function renderEditorBoard() {
       button.setAttribute("aria-label", `${column.topic || "Topic"}, ${boss ? "Boss clue" : `${clue.value} points`}, ${status}`);
       button.innerHTML = `<span class="clue-points">${boss ? "Wager clue" : `${clue.value.toLocaleString()} pts`}</span><span class="clue-excerpt">${escapeHtml(clue.answer || "Add a clue…")}</span><span class="clue-status">${status === "Complete" ? "✓ " : "○ "}${status}${clue.image ? " · Image" : ""}</span>`;
       button.addEventListener("click", () => openClueEditor(columnIndex, row));
-      section.append(button);
+      const item = document.createElement("div");
+      item.className = "author-clue-item";
+      item.dataset.column = columnIndex;
+      item.dataset.row = row;
+      item.append(button);
+      if (!boss && column.clues.length > 1) {
+        const handle = document.createElement("button");
+        handle.type = "button";
+        handle.className = "clue-drag-handle";
+        handle.textContent = "⠿";
+        handle.setAttribute("aria-label", `Move clue ${row + 1} in ${column.topic || "topic"}. Use up and down arrow keys.`);
+        handle.addEventListener("keydown", event => {
+          if (!["ArrowUp", "ArrowDown"].includes(event.key)) return;
+          event.preventDefault();
+          moveClue(columnIndex, row, row + (event.key === "ArrowUp" ? -1 : 1));
+        });
+        handle.addEventListener("pointerdown", event => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          draggedClue = { boardIndex: state.selectedBoard, columnIndex, row, target: row, pointerId: event.pointerId };
+          handle.setPointerCapture(event.pointerId);
+          item.classList.add("dragging");
+        });
+        handle.addEventListener("pointermove", event => {
+          if (!draggedClue || draggedClue.pointerId !== event.pointerId) return;
+          const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".author-clue-item");
+          elements.editorBoard.querySelectorAll(".drop-target").forEach(node => node.classList.remove("drop-target"));
+          draggedClue.target = row;
+          if (target && Number(target.dataset.column) === columnIndex) {
+            draggedClue.target = Number(target.dataset.row);
+            target.classList.add("drop-target");
+          }
+        });
+        handle.addEventListener("pointerup", event => {
+          if (!draggedClue || draggedClue.pointerId !== event.pointerId) return;
+          const target = draggedClue.target;
+          draggedClue = null;
+          item.classList.remove("dragging");
+          elements.editorBoard.querySelectorAll(".drop-target").forEach(node => node.classList.remove("drop-target"));
+          moveClue(columnIndex, row, target);
+        });
+        handle.addEventListener("pointercancel", () => { draggedClue = null; renderEditorBoard(); });
+        item.append(handle);
+      }
+      section.append(item);
     });
     return section;
+  }));
+}
+
+function moveClue(columnIndex, from, to) {
+  const board = state.game.boards[state.selectedBoard];
+  if (to < 0 || to >= board.columns[columnIndex].clues.length || from === to) return;
+  rememberChange();
+  reorderClue(state.game, state.selectedBoard, columnIndex, from, to);
+  if (!saveGame(true)) {
+    state.game.boards = undoState.boards;
+    undoState = null;
+    $("#undo-notice").hidden = true;
+    renderEditorBoard();
+    toast("Could not save the new order. Check device storage and try again.", true);
+    return;
+  }
+  renderEditorBoard();
+  elements.editorBoard.querySelector(`[data-column="${columnIndex}"][data-row="${to}"] .clue-drag-handle`)?.focus();
+  toast(`Clue moved to row ${to + 1}. Points now match that row.`);
+}
+
+function renderRowValues() {
+  $("#row-values-error").textContent = "";
+  $("#row-values-preset").value = "custom";
+  $("#row-values-fields").replaceChildren(...state.game.row_values.slice(0, Math.max(5, ...state.game.boards.filter(board => !isBossBoard(board)).flatMap(board => board.columns.map(column => column.size)))).map((value, row) => {
+    const label = document.createElement("label");
+    label.textContent = `Row ${row + 1}`;
+    const input = document.createElement("input");
+    input.type = "number"; input.min = "1"; input.step = "1"; input.required = true; input.value = value;
+    label.append(input);
+    return label;
   }));
 }
 
@@ -149,9 +230,6 @@ function openClueEditor(columnIndex, row) {
   $("#clue-location").textContent = boss
     ? `${column.topic || "Boss topic"} · Wager round`
     : `${column.topic || `Topic ${columnIndex + 1}`} · ${clue.value.toLocaleString()}`;
-  $("#clue-value-field").hidden = boss;
-  $("#clue-value").required = !boss;
-  $("#clue-value").value = boss ? "" : clue.value;
   $("#clue-answer").value = clue.answer;
   $("#clue-question").value = clue.question;
   state.pendingClueImage = clue.image || "";
@@ -264,6 +342,27 @@ export function initStudio() {
   fillNumberOptions(elements.rowCount, LIMITS.minRows, LIMITS.maxRows);
   fillNumberOptions(elements.columnCount, LIMITS.minColumns, LIMITS.maxColumns);
 
+  $("#adult-content").addEventListener("change", () => { state.game.adult_content = $("#adult-content").checked; saveGame(); });
+  $("#row-values-button").addEventListener("click", () => { renderRowValues(); $("#row-values-dialog").showModal(); });
+  $("#row-values-preset").addEventListener("change", () => {
+    const step = Number($("#row-values-preset").value);
+    if (!step) return;
+    $("#row-values-fields").querySelectorAll("input").forEach((input, row) => { input.value = (row + 1) * step; });
+  });
+  $("#row-values-fields").addEventListener("input", () => { $("#row-values-preset").value = "custom"; });
+  $("#row-values-form").addEventListener("submit", event => {
+    event.preventDefault();
+    const values = [...$("#row-values-fields").querySelectorAll("input")].map(input => Number(input.value));
+    if (values.some(value => !Number.isSafeInteger(value) || value < 1)) { $("#row-values-error").textContent = "Enter a positive whole number for every row."; return; }
+    const previous = [...state.game.row_values];
+    const step = Number($("#row-values-preset").value);
+    state.game.row_values = step ? defaultRowValues(step) : [...previous];
+    values.forEach((value, row) => { state.game.row_values[row] = value; });
+    if (!saveGame()) { state.game.row_values = previous; applyRowValues(state.game); $("#row-values-error").textContent = "Could not save. Check device storage and try again."; return; }
+    renderStudio();
+    $("#row-values-dialog").close();
+    toast("Row points saved for all rounds.");
+  });
   elements.gameName.addEventListener("input", () => { state.game.name = elements.gameName.value; saveGame(); });
   elements.playerCount.addEventListener("change", () => { state.game.num_players = Number(elements.playerCount.value); saveGame(); });
   elements.difficulty.addEventListener("change", () => {
@@ -300,7 +399,6 @@ export function initStudio() {
     const clue = state.game.boards[state.selectedBoard].columns[state.editingClue.columnIndex].clues[state.editingClue.row];
     const previous = structuredClone(clue);
     if (isBossBoard(state.game.boards[state.selectedBoard])) delete clue.value;
-    else clue.value = Number($("#clue-value").value);
     clue.answer = $("#clue-answer").value;
     clue.question = $("#clue-question").value;
     clue.image = state.pendingClueImage;

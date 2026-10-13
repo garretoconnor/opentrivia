@@ -4,7 +4,7 @@ import { createGame } from '../core.mjs';
 
 // Minimal DOM adapter: exercise the real editor event handlers and persisted data.
 class Element {
-  constructor() { this.value = ''; this.dataset = {}; this.children = []; this.listeners = {}; this.style = { setProperty() {} }; }
+  constructor() { this.value = ''; this.dataset = {}; this.children = []; this.listeners = {}; this.style = { setProperty() {} }; this.classList = { add() {}, remove() {} }; }
   addEventListener(type, fn, options) { (this.listeners[type] ||= []).push({ fn, once: options?.once }); }
   async fire(type, extra = {}) {
     const handlers = [...(this.listeners[type] || [])];
@@ -12,11 +12,16 @@ class Element {
     await Promise.all(handlers.map(({ fn }) => fn({ target: this, preventDefault() {}, ...extra })));
   }
   setAttribute() {}
+  setPointerCapture() {}
   append(...children) { this.children.push(...children); }
   replaceChildren(...children) { this.children = children; }
   get options() { return this.children; }
   closest() { return this; }
   querySelector() { return null; }
+  querySelectorAll(selector) {
+    const descendants = this.children.flatMap(child => [child, ...child.querySelectorAll('*')]);
+    return selector === 'input' ? descendants.filter(child => child.tagName === 'input') : descendants;
+  }
   showModal() { this.open = true; }
   close(value) { if (value !== undefined) this.returnValue = value; this.open = false; void this.fire('close'); }
   focus() { document.activeElement = this; }
@@ -24,12 +29,12 @@ class Element {
 }
 const nodes = new Map();
 const get = id => { if (!nodes.has(id)) nodes.set(id, new Element()); return nodes.get(id); };
-globalThis.document = { querySelector: get, getElementById: id => get(`#${id}`), querySelectorAll: () => [], createElement: () => new Element(), addEventListener() {} };
+globalThis.document = { querySelector: get, getElementById: id => get(`#${id}`), querySelectorAll: () => [], createElement: tag => Object.assign(new Element(), { tagName: tag }), addEventListener() {} };
 globalThis.Option = class extends Element { constructor(text, value) { super(); this.textContent = text; this.value = String(value); } };
 const storage = new Map();
 let failSave = false;
 globalThis.localStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => { if (failSave) throw new Error('Quota exceeded'); storage.set(key, value); } };
-const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.5.1');
+const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.5.2');
 const { initStudio, renderStudio, editStudioClue } = await import('../modules/studio.js');
 initStudio();
 function reset() { failSave = false; state.game = createGame(); state.authoredGame = state.game; state.selectedBoard = 0; renderStudio(); saveGame(); }
@@ -95,4 +100,61 @@ test('deleting a round can be undone with its content intact', async () => {
   assert.equal(state.game.boards.length, before.length - 1);
   await get('#undo-button').fire('click');
   assert.deepEqual(state.game.boards, before);
+});
+
+
+const firstHandle = () => get('#editor-board').children[0].children[1].children[1];
+
+test('keyboard reordering persists row values and supports undo', async () => {
+  reset(); clue().answer = 'Move me'; saveGame();
+  await firstHandle().fire('keydown', { key: 'ArrowDown' });
+  assert.equal(state.game.boards[0].columns[0].clues[1].answer, 'Move me');
+  assert.equal(state.game.boards[0].columns[0].clues[1].value, 400);
+  assert.equal(JSON.parse(storage.get(STORAGE_KEY)).boards[0].columns[0].clues[1].value, 400);
+  await get('#undo-button').fire('click');
+  assert.equal(clue().answer, 'Move me'); assert.equal(clue().value, 200);
+});
+
+test('row presets and custom values save game-wide and age marking persists', async () => {
+  reset();
+  get('#adult-content').checked = true; await get('#adult-content').fire('change');
+  assert.equal(JSON.parse(storage.get(STORAGE_KEY)).adult_content, true);
+  await get('#row-values-button').fire('click');
+  get('#row-values-preset').value = '100'; await get('#row-values-preset').fire('change');
+  await get('#row-values-form').fire('submit');
+  assert.equal(clue().value, 100); assert.equal(state.game.row_values[15], 1600);
+  await get('#row-values-button').fire('click');
+  get('#row-values-fields').querySelectorAll('input')[0].value = '175';
+  await get('#row-values-fields').fire('input'); await get('#row-values-form').fire('submit');
+  assert.equal(state.game.boards[0].columns[5].clues[0].value, 175);
+});
+
+test('failed reorder and row point saves restore the previous data', async () => {
+  reset(); clue().answer = 'Keep here'; saveGame(); failSave = true;
+  await firstHandle().fire('keydown', { key: 'ArrowDown' });
+  assert.equal(clue().answer, 'Keep here');
+  await get('#row-values-button').fire('click');
+  get('#row-values-fields').querySelectorAll('input')[0].value = '999';
+  await get('#row-values-form').fire('submit');
+  assert.equal(clue().value, 200);
+  assert.match(get('#row-values-error').textContent, /Could not save/);
+  failSave = false;
+});
+
+
+test('pointer dragging moves only within the original column', async () => {
+  reset(); clue().answer = 'Dragged clue'; saveGame();
+  let handle = firstHandle();
+  await handle.fire('pointerdown', { button: 0, pointerId: 1 });
+  document.elementFromPoint = () => get('#editor-board').children[1].children[2];
+  await handle.fire('pointermove', { pointerId: 1, clientX: 0, clientY: 0 });
+  await handle.fire('pointerup', { pointerId: 1 });
+  assert.equal(clue().answer, 'Dragged clue');
+  handle = firstHandle();
+  await handle.fire('pointerdown', { button: 0, pointerId: 2 });
+  document.elementFromPoint = () => get('#editor-board').children[0].children[3];
+  await handle.fire('pointermove', { pointerId: 2, clientX: 0, clientY: 0 });
+  await handle.fire('pointerup', { pointerId: 2 });
+  assert.equal(state.game.boards[0].columns[0].clues[2].answer, 'Dragged clue');
+  assert.equal(state.game.boards[0].columns[0].clues[2].value, 600);
 });

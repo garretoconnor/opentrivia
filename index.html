@@ -7,8 +7,8 @@
     <meta name="description" content="Create, discover, and host custom trivia games with friends." />
     <title>OpenTrivia — Make a game night</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=0.5.3" />
-    <link rel="stylesheet" href="studio.css?v=0.5.2" />
+    <link rel="stylesheet" href="styles.css?v=0.5.4" />
+    <link rel="stylesheet" href="studio.css?v=0.5.3" />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -100,7 +100,7 @@
             <button type="button" id="export-game-button">Export game</button>
           </div>
         </div>
-        <button class="button quiet" id="settings-button" type="button">Settings</button><button class="button secondary" id="preview-button" type="button">Preview</button><button class="button secondary" id="publish-button" type="button">Publish</button>
+        <button class="button quiet" id="row-values-button" type="button">Row points</button><button class="button quiet" id="settings-button" type="button">Settings</button><button class="button secondary" id="preview-button" type="button">Preview</button><button class="button secondary" id="publish-button" type="button">Publish</button>
         <button class="button primary" id="play-button" type="button">Play <span aria-hidden="true">→</span></button>
       </div>
 </div>
@@ -164,7 +164,7 @@
           <select id="difficulty" class="compact-select">
             <option value="easy">● Easy</option><option value="medium">■ Medium</option><option value="hard">◆ Hard</option>
           </select>
-          <label class="field-label" for="player-count">Players</label>
+          <label class="adult-content-option"><input id="adult-content" type="checkbox" /> Contains 18+ content</label><p>Marked games display an 18+ label in the public library.</p><label class="field-label" for="player-count">Players</label>
           <select id="player-count" class="compact-select"></select>
           <label class="field-label" for="hero-image-input">Hero image</label>
           <label class="image-upload" for="hero-image-input">
@@ -175,10 +175,11 @@
           <button class="text-button" id="remove-hero-button" type="button" hidden>Remove hero image</button>
 
 </dialog>
+<dialog id="row-values-dialog" class="studio-dialog" aria-labelledby="row-values-title"><div class="dialog-topline"><h2 id="row-values-title">Row points</h2><button type="button" class="button quiet" data-close="row-values-dialog">Done</button></div><p>Values apply to the same row across every standard round. Moving a clue changes its points to match its new row. Boss rounds use wagers.</p><label class="field-label" for="row-values-preset">Point pattern</label><select id="row-values-preset"><option value="custom">Custom values</option><option value="100">100, 200, 300…</option><option value="200">200, 400, 600…</option><option value="500">500, 1,000, 1,500…</option></select><form id="row-values-form"><div id="row-values-fields" class="row-values-fields"></div><p id="row-values-error" role="alert"></p><div class="dialog-actions"><button class="button primary" type="submit">Save row points</button></div></form></dialog>
 <dialog id="clue-dialog" class="studio-dialog clue-dialog" aria-labelledby="clue-title">
       <form method="dialog" id="clue-form">
         <div class="dialog-topline"><div><div class="eyebrow" id="clue-location">Topic · 200</div><h2 id="clue-title">Edit clue</h2></div><button class="icon-button" type="button" id="close-clue-button" aria-label="Close">×</button></div>
-        <div class="clue-fields"><p id="clue-save-status" role="status">Changes save when you select Save clue.</p><div id="clue-value-field"><label class="field-label" for="clue-value">Point value</label><input id="clue-value" name="value" type="number" step="1" /></div>
+        <div class="clue-fields"><p id="clue-save-status" role="status">Changes save when you select Save clue.</p>
         <label class="field-label" for="clue-answer">Clue shown to players</label><textarea id="clue-answer" name="answer" rows="4" placeholder="e.g. This planet is famous for its rings"></textarea>
         <label class="field-label" for="clue-question">Correct response</label><textarea id="clue-question" name="question" rows="3" placeholder="e.g. What is Saturn?"></textarea>
         <details id="clue-attachment"><summary>Image attachment (optional)</summary><label class="field-label" for="clue-image-input">Choose an image</label>
@@ -194,6 +195,6 @@
     <dialog id="card-dialog" class="dialog play-card-dialog"><div id="card-dialog-content"></div></dialog>
     <input id="file-input" type="file" accept="application/json,.json" hidden />
     <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
-    <script type="module" src="app.js?v=0.5.1"></script>
+    <script type="module" src="app.js?v=0.5.2"></script>
   </body>
 </html>

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   DIFFICULTIES,
+  reorderClue,
   LIMITS,
   buzzTimer,
   createBoard,
@@ -166,4 +167,45 @@ test("hosted rooms expose a game, reject non-host closure, and cease to exist af
   assert.equal((await room.fetch(new Request("https://room/close", { method: "POST", headers: { "x-host-token": "wrong" } }))).status, 403);
   assert.equal((await room.fetch(new Request("https://room/close", { method: "POST", headers: { "x-host-token": host_token } }))).status, 200);
   assert.equal((await room.fetch(new Request("https://room/"))).status, 404);
+});
+
+
+test("row values follow reordered clues across all standard rounds and exports", () => {
+  const game = createGame();
+  game.row_values[0] = 125; game.row_values[1] = 375;
+  game.boards.push(createBoard(2, 2), createBossBoard());
+  const column = game.boards[0].columns[0];
+  column.clues[0].answer = "First"; column.clues[0].question = "Response"; column.clues[0].image = "image";
+  column.clues[1].answer = "Second";
+  assert.equal(reorderClue(game, 0, 0, 0, 1), true);
+  assert.equal(column.clues[1].answer, "First");
+  assert.equal(column.clues[1].question, "Response");
+  assert.equal(column.clues[1].image, "image");
+  assert.equal(column.clues[1].value, 375);
+  column.clues[1].value = 9999; // Publishing must disregard stale per-clue values.
+  const published = JSON.parse(exportGame(game)).game;
+  assert.equal(published.boards[0].columns[0].clues[1].value, 375);
+  assert.equal(published.boards[1].columns[1].clues[0].value, 125);
+  assert.equal("value" in published.boards[2].columns[0].clues[0], false);
+  assert.equal(reorderClue(game, 0, 0, 0, -1), false);
+  assert.equal(reorderClue(game, 2, 0, 0, 1), false);
+});
+
+test("legacy games adopt the first topic's row values and default to all ages", () => {
+  const legacy = createGame(); delete legacy.row_values; delete legacy.adult_content;
+  legacy.boards[0].columns[0].clues[0].value = 150;
+  const clean = normalizeGame(legacy);
+  assert.equal(clean.row_values[0], 150);
+  assert.equal(clean.boards[0].columns[1].clues[0].value, 150);
+  assert.equal(clean.adult_content, false);
+});
+
+test("game settings survive round trips and reject invalid point values and age flags", () => {
+  const game = createGame(); game.adult_content = true;
+  delete game.boards[0].columns[0].clues[0].value;
+  assert.equal(normalizeGame(JSON.parse(exportGame(game))).adult_content, true);
+  for (const invalid of [null, [], [0], [-1], [1.5], ["200"], [Number.MAX_SAFE_INTEGER + 1], Array(17).fill(200)]) {
+    assert.throws(() => normalizeGame({ ...game, row_values: invalid }), /row_values/);
+  }
+  assert.throws(() => normalizeGame({ ...game, adult_content: "yes" }), /adult_content/);
 });

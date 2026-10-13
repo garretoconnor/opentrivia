@@ -97,3 +97,15 @@
   .studio-view .size-controls { gap: 8px; }
   .studio-view .workspace { padding-top: 16px; }
 }
+
+.author-clue-item { position: relative; }
+.author-clue-item .author-clue { height: 100%; padding-right: 42px; }
+.clue-drag-handle { position: absolute; top: 6px; right: 6px; width: 32px; height: 36px; border: 0; border-radius: 6px; background: #edf5f8; color: #365c6d; font-size: 1.4rem; cursor: grab; touch-action: none; }
+.clue-drag-handle:active { cursor: grabbing; }
+.author-clue-item.dragging { opacity: .6; }
+.author-clue-item.drop-target { outline: 3px solid #087da7; border-radius: 10px; }
+.row-values-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
+.row-values-fields label { display: grid; gap: 4px; font-size: .85rem; }
+.studio-dialog .adult-content-option { display: flex; align-items: center; gap: 10px; margin-top: 20px; }
+.studio-dialog .adult-content-option input { width: auto; }
+#row-values-error { color: #a02635; }

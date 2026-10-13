@@ -4,11 +4,11 @@ import {
   gradeBossGuess,
   isBossBoard,
   setWager,
-} from "../core.mjs?v=0.3.1";
-import { api } from "./data.js?v=0.5.1";
-import { rateGame, recordLocalPlay } from "./library.js?v=0.5.1";
-import { $, elements, escapeHtml, formatText, switchView, toast } from "./render.js?v=0.5.1";
-import { saveGame, state } from "./state.js?v=0.5.1";
+} from "../core.mjs?v=0.3.2";
+import { api } from "./data.js?v=0.5.2";
+import { rateGame, recordLocalPlay } from "./library.js?v=0.5.2";
+import { $, elements, escapeHtml, formatText, switchView, toast } from "./render.js?v=0.5.2";
+import { saveGame, state } from "./state.js?v=0.5.2";
 
 let openHostedPlayCard = () => {};
 let closeHostedRoom = () => {};

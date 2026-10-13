@@ -1,8 +1,8 @@
-import { editStudioClue } from "./studio.js?v=0.5.1";
-import { difficultySymbol, normalizeGame } from "../core.mjs?v=0.3.1";
-import { allowsLocalFallback, api } from "./data.js?v=0.5.1";
-import { $, elements, escapeHtml, switchView, toast } from "./render.js?v=0.5.1";
-import { localLibrary, saveGame, saveLocalLibrary, state, voterId } from "./state.js?v=0.5.1";
+import { editStudioClue } from "./studio.js?v=0.5.2";
+import { difficultySymbol, normalizeGame } from "../core.mjs?v=0.3.2";
+import { allowsLocalFallback, api } from "./data.js?v=0.5.2";
+import { $, elements, escapeHtml, switchView, toast } from "./render.js?v=0.5.2";
+import { localLibrary, saveGame, saveLocalLibrary, state, voterId } from "./state.js?v=0.5.2";
 
 let showSetup = () => {};
 let hostPublishedGame = () => {};
@@ -34,6 +34,7 @@ function summarizeLocal(entry) {
     title: entry.game.name,
     hero_image: entry.game.hero_image,
     difficulty: entry.game.difficulty,
+    adult_content: entry.game.adult_content ?? false,
     score: entry.score || 0,
     weekly_plays: (entry.plays || []).filter((playedAt) => playedAt >= Date.now() - 7 * 24 * 60 * 60 * 1000).length,
   };
@@ -69,7 +70,7 @@ function renderLibrary(games) {
     const image = entry.hero_image
       ? `<img class="game-card-image" src="${escapeHtml(entry.hero_image)}" alt="">`
       : `<div class="game-card-image game-card-placeholder" aria-hidden="true"><span>?</span></div>`;
-    card.innerHTML = `${image}<div class="game-card-body"><div class="difficulty ${escapeHtml(entry.difficulty)}"><span aria-hidden="true">${difficultySymbol(entry.difficulty)}</span> ${escapeHtml(entry.difficulty)}</div><h3>${escapeHtml(entry.title)}</h3><div class="game-stats"><span title="Community score">👍 ${Number(entry.score).toLocaleString()}</span><span title="Plays in the past seven days">▶ ${Number(entry.weekly_plays).toLocaleString()} this week</span></div><div class="game-card-actions"><button class="button secondary" data-action="host" type="button">Host</button><button class="button primary" data-action="play" type="button">Play</button></div></div>`;
+    card.innerHTML = `${image}<div class="game-card-body"><div class="difficulty ${escapeHtml(entry.difficulty)}"><span aria-hidden="true">${difficultySymbol(entry.difficulty)}</span> ${escapeHtml(entry.difficulty)}</div>${entry.adult_content ? '<span class="adult-badge">18+</span>' : ""}<h3>${escapeHtml(entry.title)}</h3><div class="game-stats"><span title="Community score">👍 ${Number(entry.score).toLocaleString()}</span><span title="Plays in the past seven days">▶ ${Number(entry.weekly_plays).toLocaleString()} this week</span></div><div class="game-card-actions"><button class="button secondary" data-action="host" type="button">Host</button><button class="button primary" data-action="play" type="button">Play</button></div></div>`;
     card.querySelector('[data-action="play"]').addEventListener("click", () => playPublished(entry.id));
     card.querySelector('[data-action="host"]').addEventListener("click", () => hostPublishedGame(entry.id));
     return card;
@@ -105,7 +106,7 @@ function reviewPublication() {
     if (!clue.answer.trim() || !clue.question.trim()) missing.push({ boardIndex, columnIndex, row, label: `Round ${boardIndex + 1} · ${column.topic || "Untitled topic"} · Clue ${row + 1}` });
   })));
   $("#publish-error").textContent = "";
-  $("#publish-summary").innerHTML = `<h3>${escapeHtml(state.game.name || "Untitled game")}</h3>${state.game.hero_image ? `<img src="${escapeHtml(state.game.hero_image)}" alt="Game cover" />` : ""}<p>${state.game.boards.length} rounds · ${clues.length - missing.length}/${clues.length} clues complete</p>${missing.length ? '<p>Finish these clues before publishing:</p><ul class="publish-issues"></ul>' : '<p>All clues have a clue and a correct response.</p>'}`;
+  $("#publish-summary").innerHTML = `<h3>${escapeHtml(state.game.name || "Untitled game")}</h3>${state.game.hero_image ? `<img src="${escapeHtml(state.game.hero_image)}" alt="Game cover" />` : ""}${state.game.adult_content ? '<p><span class="adult-badge">18+</span> Contains adult content</p>' : ""}<p>${state.game.boards.length} rounds · ${clues.length - missing.length}/${clues.length} clues complete</p>${missing.length ? '<p>Finish these clues before publishing:</p><ul class="publish-issues"></ul>' : '<p>All clues have a clue and a correct response.</p>'}`;
   missing.forEach(item => {
     const li = document.createElement("li"), button = document.createElement("button");
     button.type = "button"; button.textContent = item.label;

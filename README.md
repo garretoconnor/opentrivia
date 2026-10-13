@@ -108,3 +108,9 @@ npm run dev:worker
 ```
 
 `npm test` includes SQLite-backed tests for concurrent assignment/submission, grading, answer privacy, rollover, seasonal totals, and empty states. These tests require Node.js 22.13 or newer with `node:sqlite` available.
+
+### Game authoring settings
+
+Use **Settings → Contains 18+ content** to label a game in the public library and publication review. **Row points** sets game-wide values for every standard round, with 100-, 200-, and 500-point increment presets or custom positive whole numbers. Boss rounds keep wager scoring.
+
+Drag a clue's handle within its topic to reorder it, or focus the handle and use the up/down arrow keys. Reordering supports Undo. Points follow the destination row, and publishing/exporting derives clue values from the game's `row_values` array. The `adult_content` boolean and row values persist with the game. Legacy imports adopt the first standard topic's value for each row and default to all ages.

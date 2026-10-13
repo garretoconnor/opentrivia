@@ -25,6 +25,7 @@ class MemoryStatement {
   summary(game) {
     return {
       ...game,
+      adult_content: JSON.parse(game.game_json).adult_content ?? false,
       score: this.db.votes.filter((vote) => vote.game_id === game.id).reduce((sum, vote) => sum + vote.value, 0),
       weekly_plays: this.db.plays.filter((play) => play.game_id === game.id && play.played_at >= Date.now() - 604_800_000).length,
     };
@@ -178,4 +179,21 @@ test("a 35-second answer timeout deducts the clue value and reopens it", async (
   assert.equal(settled.body.room.last_result.outcome, "timeout");
   assert.equal(settled.body.room.active_clue.phase, "open");
   assert.ok(settled.body.room.active_clue.excluded_player_ids.includes(first.player_id));
+});
+
+
+test("publication derives clue values from current rows and exposes the 18+ label", async () => {
+  const DB = new MemoryD1();
+  const game = createGame(); game.adult_content = true; game.row_values[0] = 75;
+  game.boards[0].columns[0].clues[0].value = 5000;
+  const response = await handleApi(new Request("https://example.test/api/games", {
+    method: "POST", body: JSON.stringify({ game }),
+  }), { DB });
+  assert.equal(response.status, 201);
+  const published = await body(response);
+  assert.equal(published.game.adult_content, true);
+  const selected = await body(await handleApi(new Request(`https://example.test/api/games/${published.game.id}`), { DB }));
+  assert.equal(selected.game.data.boards[0].columns[0].clues[0].value, 75);
+  const listing = await body(await handleApi(new Request("https://example.test/api/games"), { DB }));
+  assert.equal(listing.games[0].adult_content, true);
 });
