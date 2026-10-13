@@ -10,7 +10,7 @@ test("deployed Worker serves the entire browser module graph", async () => {
   const root = fileURLToPath(new URL("../", import.meta.url));
   const directory = await mkdtemp(join(tmpdir(), "opentrivia-build-"));
   try {
-    for (const file of ["package.json", "scripts", "modules", "index.html", "ok-logo.svg", "favicon.svg", "styles.css", "studio.css", "app.js", "core.mjs", "api.mjs", "daily.mjs"]) {
+    for (const file of ["package.json", "scripts", "modules", "index.html", "admin.html", "admin.css", "admin.js", "admin.mjs", "ok-logo.svg", "favicon.svg", "styles.css", "studio.css", "app.js", "core.mjs", "api.mjs", "daily.mjs"]) {
       await cp(join(root, file), join(directory, file), { recursive: true });
     }
     execFileSync(process.execPath, ["scripts/build.mjs"], { cwd: directory });
@@ -28,6 +28,16 @@ test("deployed Worker serves the entire browser module graph", async () => {
     const entry = html.match(/<script\b[^>]*type="module"[^>]*src="([^"]+)"/);
     assert.ok(entry, "HTML includes a browser module entrypoint");
     const pending = [new URL(entry[1], origin).href];
+    for (const path of ['/admin', '/admin.html']) {
+      const response = await worker.fetch(new Request(origin + path), {});
+      assert.equal(response.status, 200);
+      const admin = await response.text();
+      assert.match(admin, /Daily question bank/);
+      pending.push(new URL(admin.match(/<script\b[^>]*type="module"[^>]*src="([^"]+)"/)[1], origin).href);
+    }
+    const adminCss = await worker.fetch(new Request(origin + '/admin.css'), {});
+    assert.equal(adminCss.status, 200);
+    assert.match(adminCss.headers.get('content-type'), /text\/css/);
     const visited = new Set();
     while (pending.length) {
       const url = pending.pop();

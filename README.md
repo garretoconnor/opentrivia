@@ -61,7 +61,7 @@ Players choose a public display name. A server-issued, HttpOnly cookie remembers
 
 ### Automatic seasons and question writing
 
-Apply all pending migrations using the deployment migration command above. `0002_daily_trivia.sql` creates the daily tables; `0003_consistent_question_content.sql` renames `prompt` to `clue` and adds `topic` and `image` to both the question bank and challenge snapshots. Existing content, attempts, and scores are preserved. The column rename requires the updated Worker; coordinate this migration with deployment, since the previous Worker expects `prompt`. The migration deliberately creates **no questions**. The app creates seasons automatically on the first request in each season. Manage questions privately through D1 SQL (there is no public bank-writing API). Write a private SQL file and apply it with:
+Apply all pending migrations using the deployment migration command above. `0002_daily_trivia.sql` creates the daily tables; `0003_consistent_question_content.sql` renames `prompt` to `clue` and adds `topic` and `image` to both the question bank and challenge snapshots. Existing content, attempts, and scores are preserved. The column rename requires the updated Worker; coordinate this migration with deployment, since the previous Worker expects `prompt`. The migration deliberately creates **no questions**. The app creates seasons automatically on the first request in each season. Use the protected admin interface below to add questions, or manage them privately through D1 SQL. To use SQL, write a private file and apply it with:
 
 ```sh
 npx cf d1 query 5951b3b3-d55d-4e4f-ad61-c62840ba4e3c --sql "$(cat /path/to/your-daily-content.sql)"
@@ -99,6 +99,20 @@ Grading ignores capitalization, surrounding/repeated whitespace, and Unicode com
 Daily questions and board clues share the same content fields. A board clue inherits its topic from its column; a daily question stores its own topic. Board clues retain their row-based or wager-based scoring, and hosts continue to judge responses manually. The board editor supports alternative accepted answers and explanations for reference during judging.
 
 Each question is used once across all seasons. The first daily request atomically saves the next eligible unused question and its answers into `daily_challenges`. All players receive that snapshot, including if the bank is later edited or the question disabled. Answers and explanations are only returned after that player submits. If the bank is exhausted, play pauses with an empty state; adding an enabled question makes it available on the next request. Existing leaderboards remain visible. Do not edit challenge snapshots or delete used questions.
+
+### Daily question bank admin
+
+Open `/admin` on the deployed Worker (or `/admin.html` locally). The admin form adds questions to the existing D1 bank with a topic, question text, correct answer, alternate accepted answers (one per line), explanation, optional HTTPS image URL, and queue order. New questions default to **Ready for daily play**; uncheck that option to save a draft. The bank shows ready, draft, and used counts. Use **Make ready** or **Move to draft** for unused questions. Used questions cannot be changed here, and adding a question does not replace an existing daily snapshot. There is no new database migration.
+
+Before using the page, add a secret named `ADMIN_TOKEN` to the `opentrivia` Worker in Cloudflare **Settings → Variables and Secrets**, using a long random access key. Deploy this change using the normal deployment workflow above. Enter the same key to unlock the admin page. All `/api/admin/*` requests require it; admin access remains disabled when the secret is missing. The page keeps the key only in memory, sends it in an Authorization header, and clears it when you lock or reload the page. Bank responses are never cached. Keep the key private and use the deployed page over HTTPS.
+
+For local Worker development, create a git-ignored `.dev.vars` file in the repository root:
+
+```dotenv
+ADMIN_TOKEN=your-local-only-admin-key
+```
+
+Apply the existing local migrations and run `npm run dev:worker` as described below. The static `npm run dev` server can show the form at `/admin.html`, but saving and unlocking require the Worker and D1. Do not put a production key in source files or browser assets.
 
 ### Preview daily trivia locally
 

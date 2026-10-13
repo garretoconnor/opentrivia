@@ -1,0 +1,38 @@
+@import url('/styles.css');
+
+body { display: block; background: #f5f8fa; color: #172c36; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 24px max(24px, calc((100vw - 1120px) / 2)); border-bottom: 1px solid #dce4e8; background: white; }
+a { color: #285c70; }
+.brand { display: flex; gap: 10px; align-items: center; font-weight: 800; text-decoration: none; font-size: 20px; }
+main { max-width: 1120px; margin: 40px auto; padding: 0 24px; }
+h1 { font-size: clamp(28px, 4vw, 40px); margin: 8px 0 12px; }
+h2 { font-size: 21px; margin: 0 0 16px; }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #527281; }
+.intro { margin-bottom: 24px; color: #526671; }
+.columns { display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; align-items: start; }
+.card { padding: 28px; background: white; border: 1px solid #dce4e8; border-radius: 16px; }
+#login { max-width: 520px; }
+form { display: flex; flex-direction: column; gap: 10px; }
+label { font-weight: 650; margin-top: 12px; }
+label span, .hint { font-weight: 400; color: #526671; font-size: 13px; }
+input, textarea { width: 100%; border: 1px solid #b5c7d0; border-radius: 8px; padding: 11px 12px; background: white; color: #172c36; font: inherit; }
+textarea { resize: vertical; }
+input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid #2c92b9; outline-offset: 3px; }
+button { border: 1px solid #173c4b; background: #173c4b; color: white; border-radius: 8px; font: inherit; font-weight: 650; padding: 11px 16px; cursor: pointer; }
+button:disabled { opacity: .6; cursor: wait; }
+form > button { margin-top: 12px; }
+.secondary { background: white; color: #173c4b; border-color: #b5c7d0; padding: 8px 12px; }
+.hint { margin: 0 0 4px; line-height: 1.5; }
+.checkbox { display: flex; align-items: center; gap: 10px; }
+.checkbox input { width: 18px; height: 18px; accent-color: #173c4b; }
+.bank-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.bank-heading h2, .bank-heading p { margin: 0; }
+#status { line-height: 1.5; overflow-wrap: anywhere; }
+#status:empty { display: none; }
+#status[data-error="true"] { color: #a12032; }
+#questions { list-style: none; padding: 0; margin: 16px 0 0; }
+#questions li { border-top: 1px solid #e4eaed; padding: 18px 0; overflow-wrap: anywhere; }
+#questions p { margin: 6px 0; }
+.question-meta { color: #526671; font-size: 13px; }
+[hidden] { display: none !important; }
+@media (max-width: 760px) { .columns { grid-template-columns: 1fr; } main { margin-top: 28px; padding: 0 16px; } .card { padding: 20px; } header { padding: 20px 16px; } }
