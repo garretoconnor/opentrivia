@@ -1,4 +1,5 @@
 import { handleDaily } from "./daily.mjs";
+import { handleAdmin } from "./admin.mjs";
 import { normalizeGame } from "./core.mjs?v=0.6.0";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
@@ -41,6 +42,7 @@ export async function handleApi(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
   try {
+    if (path === "/api/admin" || path.startsWith("/api/admin/")) return await handleAdmin(request, env);
     if (path === "/api/daily" || path.startsWith("/api/daily/")) return await handleDaily(request, env);
     if (path === "/api/games" && request.method === "GET") {
       if (!env.DB) return error("The public library is not configured.", 503);

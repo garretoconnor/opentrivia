@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Daily question bank — OpenTrivia</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/admin.css" />
+  </head>
+  <body>
+    <header><a class="brand" href="/"><img src="/ok-logo.svg" alt="" width="32" height="22" />OpenTrivia</a><a href="/">Back to trivia</a></header>
+    <main>
+      <p class="eyebrow">Admin</p>
+      <h1>Daily question bank</h1>
+      <p class="intro">Write a question, add the answers you’ll accept, and put it in the daily queue.</p>
+      <p id="status" role="status" aria-live="polite"></p>
+      <section id="login" class="card" aria-labelledby="login-title">
+        <h2 id="login-title">Unlock the question bank</h2>
+        <p>Enter your admin access key. It stays in memory until you lock the page or leave.</p>
+        <form id="login-form">
+          <label for="token">Admin access key</label>
+          <input id="token" type="password" required autocomplete="off" maxlength="1024" />
+          <button type="submit">Unlock</button>
+        </form>
+      </section>
+      <div id="workspace" hidden>
+        <div class="bank-heading"><p id="counts"></p><button id="lock" class="secondary" type="button">Lock admin</button></div>
+        <div class="columns">
+          <section class="card" aria-labelledby="new-title">
+            <h2 id="new-title">Add a question</h2>
+            <form id="question-form">
+              <label for="topic">Topic <span>(optional)</span></label>
+              <input id="topic" name="topic" maxlength="120" placeholder="e.g. Science" />
+              <label for="clue">Question</label>
+              <textarea id="clue" name="clue" rows="4" required maxlength="2000" placeholder="What will players be asked?"></textarea>
+              <label for="answer">Correct answer</label>
+              <input id="answer" name="answer" required maxlength="300" />
+              <label for="alternatives">Other accepted answers <span>(optional)</span></label>
+              <textarea id="alternatives" name="alternatives" rows="3" aria-describedby="alternatives-help"></textarea>
+              <p class="hint" id="alternatives-help">One per line, up to 30. Capitalization and extra spaces are already ignored.</p>
+              <label for="explanation">Explanation <span>(optional)</span></label>
+              <textarea id="explanation" name="explanation" rows="3" maxlength="2000" aria-describedby="explanation-help"></textarea>
+              <p class="hint" id="explanation-help">Shown after a player submits their answer.</p>
+              <label for="image">Image URL <span>(optional)</span></label>
+              <input id="image" name="image" type="url" maxlength="2000" placeholder="https://…" />
+              <label for="queue-order">Queue order</label>
+              <input id="queue-order" name="queue_order" type="number" min="-2147483647" max="2147483647" step="1" value="0" required aria-describedby="queue-help" />
+              <p class="hint" id="queue-help">Lower numbers play first. Equal numbers are sorted by question ID. Each question plays once.</p>
+              <label class="checkbox"><input id="enabled" name="enabled" type="checkbox" checked />Ready for daily play</label>
+              <p class="hint">Uncheck to save a draft. Adding a question won’t replace today’s question.</p>
+              <button id="save" type="submit">Add question</button>
+            </form>
+          </section>
+          <section class="card" aria-labelledby="bank-title">
+            <div class="bank-heading"><h2 id="bank-title">Question bank</h2><button id="refresh" class="secondary" type="button">Refresh</button></div>
+            <p class="hint">Up to 100 questions, with unused questions first in queue order.</p>
+            <ul id="questions"></ul>
+          </section>
+        </div>
+      </div>
+    </main>
+    <script type="module" src="/admin.js"></script>
+  </body>
+</html>
