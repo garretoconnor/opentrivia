@@ -9,6 +9,7 @@ class D1 {
     this.db = new DatabaseSync(':memory:');
     this.db.exec(readFileSync(new URL('../migrations/0001_v0_2.sql', import.meta.url), 'utf8'));
     this.db.exec(readFileSync(new URL('../migrations/0002_daily_trivia.sql', import.meta.url), 'utf8'));
+    this.db.exec(readFileSync(new URL('../migrations/0003_consistent_question_content.sql', import.meta.url), 'utf8'));
   }
   prepare(sql) {
     const statement = this.db.prepare(sql);
@@ -25,8 +26,8 @@ function setup() {
   const DB = new D1();
   // Synthetic fixtures only; no questions are shipped in the bank.
   for (let i = 1; i <= 4; i++) DB.db.prepare(`INSERT INTO daily_questions
-    (id, prompt, answer, accepted_answers, explanation, enabled, queue_order) VALUES (?, ?, ?, ?, ?, 1, ?)`)
-    .run(`q${i}`, `Test prompt ${i}`, 'Test answer', '["Alias"]', 'Test explanation', i);
+    (id, clue, answer, accepted_answers, explanation, enabled, queue_order) VALUES (?, ?, ?, ?, ?, 1, ?)`)
+    .run(`q${i}`, `Test clue ${i}`, 'Test answer', '["Alias"]', 'Test explanation', i);
   let time = Date.parse('2026-10-11T12:00:00Z');
   return { DB, setTime: value => { time = Date.parse(value); },
     async call(path = '', body, cookie) {
@@ -54,16 +55,16 @@ test('fixed EST rollover is 07:00 UTC in winter and summer', () => {
 test('shared question is stable, secret before answering, and snapshotted from bank', async () => {
   const c = setup();
   const responses = await Promise.all(Array.from({ length: 8 }, () => c.call().then(r => r.json())));
-  assert.ok(responses.every(r => r.question.prompt === 'Test prompt 1'));
+  assert.ok(responses.every(r => r.question.clue === 'Test clue 1'));
   assert.equal(c.DB.db.prepare('SELECT COUNT(*) AS n FROM daily_challenges').get().n, 1);
   assert.equal(JSON.stringify(responses).includes('Test answer'), false);
   assert.equal(JSON.stringify(responses).includes('Alias'), false);
-  c.DB.db.exec("UPDATE daily_questions SET prompt = 'Changed', answer = 'Changed' WHERE id = 'q1'");
+  c.DB.db.exec("UPDATE daily_questions SET clue = 'Changed', answer = 'Changed' WHERE id = 'q1'");
   const cookie = await player(c, 'Ada');
   const response = await c.call('/answer', { day: '2026-10-11', answer: '  ALIAS  ', points: 999 }, cookie);
   assert.equal((await response.json()).result.points, 1);
   const state = await (await c.call('', undefined, cookie)).json();
-  assert.equal(state.question.prompt, 'Test prompt 1');
+  assert.equal(state.question.clue, 'Test clue 1');
   assert.equal(state.result.correct_answer, 'Test answer');
   assert.equal(state.leaderboards.daily[0].points, 1);
   assert.equal(JSON.stringify(state.leaderboards).includes(cookie.split('=')[1]), false);
@@ -85,7 +86,7 @@ test('rollover rejects stale answer and season totals include only current seaso
   c.setTime('2026-10-12T07:00:00Z');
   assert.equal((await c.call('/answer', { day: '2026-10-11', answer: 'Test answer' }, cookie)).status, 409);
   let state = await (await c.call('', undefined, cookie)).json();
-  assert.equal(state.question.prompt, 'Test prompt 2');
+  assert.equal(state.question.clue, 'Test clue 2');
   assert.equal(state.result, null);
   assert.equal(state.leaderboards.daily.length, 0);
   assert.equal(state.leaderboards.season[0].points, 1);
@@ -137,8 +138,8 @@ test('exhaustion does not reuse questions, and new bank content resumes the same
   }
   c.setTime('2026-10-15T07:00:00Z');
   assert.equal((await (await c.call()).json()).question, null);
-  c.DB.db.exec("INSERT INTO daily_questions (id, prompt, answer, enabled) VALUES ('new', 'New fixture', 'Fixture', 1)");
-  assert.equal((await (await c.call()).json()).question.prompt, 'New fixture');
+  c.DB.db.exec("INSERT INTO daily_questions (id, clue, answer, enabled) VALUES ('new', 'New fixture', 'Fixture', 1)");
+  assert.equal((await (await c.call()).json()).question.clue, 'New fixture');
 });
 
 test('calendar seasons cover all months, year boundaries, and leap days', () => {
@@ -179,4 +180,40 @@ test('winter totals continue through January and February, and reset in March', 
   state = await (await c.call()).json();
   assert.equal(state.season.id, 'spring-2028');
   assert.equal(state.leaderboards.season.length, 0);
+});
+
+test('daily topic and image are snapshotted while grading fields stay private', async () => {
+  const c = setup();
+  c.DB.db.exec("UPDATE daily_questions SET topic = 'Space', image = 'https://example.test/saturn.png' WHERE id = 'q1'");
+  let state = await (await c.call()).json();
+  assert.deepEqual(state.question, { topic: 'Space', clue: 'Test clue 1', image: 'https://example.test/saturn.png' });
+  assert.equal(JSON.stringify(state).includes('Test explanation'), false);
+  c.DB.db.exec("UPDATE daily_questions SET topic = 'Changed', image = '', explanation = 'Changed' WHERE id = 'q1'");
+  const cookie = await player(c, 'Ada');
+  await c.call('/answer', { day: '2026-10-11', answer: 'Test answer' }, cookie);
+  state = await (await c.call('', undefined, cookie)).json();
+  assert.equal(state.question.topic, 'Space');
+  assert.equal(state.question.image, 'https://example.test/saturn.png');
+  assert.equal(state.result.explanation, 'Test explanation');
+});
+
+test('content migration preserves historical questions, challenge snapshots, and attempts', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(readFileSync(new URL('../migrations/0002_daily_trivia.sql', import.meta.url), 'utf8'));
+  db.exec(`PRAGMA foreign_keys = ON;
+    INSERT INTO daily_seasons VALUES ('fall-2026', 'Fall', '2026-09-01', '2026-12-01');
+    INSERT INTO daily_questions (id, prompt, answer, enabled) VALUES ('old', 'Bank prompt', 'Bank answer', 1);
+    INSERT INTO daily_challenges VALUES ('2026-10-11', 'fall-2026', 'old', 'Snapshot prompt', 'Snapshot answer', '[]', 'Original explanation');
+    INSERT INTO daily_players VALUES ('player', 'Ada');
+    INSERT INTO daily_attempts VALUES ('2026-10-11', 'player', 'Snapshot answer', 1, '2026-10-11T12:00:00Z');`);
+  db.exec(readFileSync(new URL('../migrations/0003_consistent_question_content.sql', import.meta.url), 'utf8'));
+  assert.equal(db.prepare('SELECT clue FROM daily_questions').get().clue, 'Bank prompt');
+  const challenge = db.prepare('SELECT * FROM daily_challenges').get();
+  assert.equal(challenge.clue, 'Snapshot prompt');
+  assert.equal(challenge.answer, 'Snapshot answer');
+  assert.equal(challenge.topic, '');
+  assert.equal(challenge.image, '');
+  assert.equal(db.prepare('SELECT points FROM daily_attempts').get().points, 1);
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
+  db.close();
 });

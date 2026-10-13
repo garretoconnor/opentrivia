@@ -12,9 +12,9 @@ import {
   normalizeBoard,
   normalizeGame,
   resizeBoard,
-} from "../core.mjs?v=0.3.2";
-import { $, elements, escapeHtml, fillNumberOptions, toast } from "./render.js?v=0.5.2";
-import { saveGame as persistGame, state } from "./state.js?v=0.5.2";
+} from "../core.mjs?v=0.6.0";
+import { $, elements, escapeHtml, answerDetails, fillNumberOptions, toast } from "./render.js?v=0.6.0";
+import { saveGame as persistGame, state } from "./state.js?v=0.6.0";
 
 let undoState = null;
 let initialClue = "";
@@ -39,7 +39,7 @@ function confirmChange(message, action) {
   });
 }
 function clueDraft() {
-  return JSON.stringify([$("#clue-answer").value, $("#clue-question").value, state.pendingClueImage]);
+  return JSON.stringify([$("#clue-text").value, $("#clue-answer").value, $("#clue-aliases").value, $("#clue-explanation").value, state.pendingClueImage]);
 }
 async function dismissClue() {
   if (clueDraft() !== initialClue && !await confirmChange("Discard unsaved changes to this clue?", "Discard changes")) return;
@@ -89,7 +89,7 @@ function renderBoardList() {
 
     button.setAttribute("aria-current", index === state.selectedBoard ? "true" : "false");
     const clues = board.columns.flatMap(column => column.clues);
-    const completed = clues.filter(clue => clue.answer.trim() && clue.question.trim()).length;
+    const completed = clues.filter(clue => clue.clue.trim() && clue.answer.trim()).length;
     button.innerHTML = `<span class="round-number">${boss ? "✦" : index + 1}</span><span><span class="round-label">${boss ? "Boss round" : `Round ${index + 1}`}</span><span class="round-type">${completed}/${clues.length} complete</span></span>`;
     button.addEventListener("click", () => {
       state.selectedBoard = index;
@@ -125,14 +125,14 @@ export function renderEditorBoard() {
     label.append(input);
     section.append(label);
     column.clues.forEach((clue, row) => {
-      const status = !clue.answer.trim() ? "Empty clue" : !clue.question.trim() ? "Needs response" : "Complete";
+      const status = !clue.clue.trim() ? "Empty clue" : !clue.answer.trim() ? "Needs response" : "Complete";
       const button = document.createElement("button");
       button.type = "button";
       button.className = `author-clue${status === "Complete" ? " complete" : ""}`;
       button.dataset.column = columnIndex;
       button.dataset.row = row;
       button.setAttribute("aria-label", `${column.topic || "Topic"}, ${boss ? "Boss clue" : `${clue.value} points`}, ${status}`);
-      button.innerHTML = `<span class="clue-points">${boss ? "Wager clue" : `${clue.value.toLocaleString()} pts`}</span><span class="clue-excerpt">${escapeHtml(clue.answer || "Add a clue…")}</span><span class="clue-status">${status === "Complete" ? "✓ " : "○ "}${status}${clue.image ? " · Image" : ""}</span>`;
+      button.innerHTML = `<span class="clue-points">${boss ? "Wager clue" : `${clue.value.toLocaleString()} pts`}</span><span class="clue-excerpt">${escapeHtml(clue.clue || "Add a clue…")}</span><span class="clue-status">${status === "Complete" ? "✓ " : "○ "}${status}${clue.image ? " · Image" : ""}</span>`;
       button.addEventListener("click", () => openClueEditor(columnIndex, row));
       const item = document.createElement("div");
       item.className = "author-clue-item";
@@ -230,15 +230,17 @@ function openClueEditor(columnIndex, row) {
   $("#clue-location").textContent = boss
     ? `${column.topic || "Boss topic"} · Wager round`
     : `${column.topic || `Topic ${columnIndex + 1}`} · ${clue.value.toLocaleString()}`;
+  $("#clue-text").value = clue.clue;
   $("#clue-answer").value = clue.answer;
-  $("#clue-question").value = clue.question;
+  $("#clue-aliases").value = clue.accepted_answers.join("\n");
+  $("#clue-explanation").value = clue.explanation;
   state.pendingClueImage = clue.image || "";
   renderClueImagePreview();
   initialClue = clueDraft();
   $("#clue-save-status").textContent = "Changes save when you select Save clue.";
   $("#clue-attachment").open = false;
   if (!elements.clueDialog.open) elements.clueDialog.showModal();
-  $("#clue-answer").focus();
+  $("#clue-text").focus();
 }
 
 function renderClueImagePreview() {
@@ -291,7 +293,7 @@ function addBoard(boss = false) {
 async function updateBoardSize() {
   const board = state.game.boards[state.selectedBoard];
   const rows = Number(elements.rowCount.value), columns = Number(elements.columnCount.value);
-  const removed = board.columns.flatMap((column, index) => column.clues.filter((clue, row) => (index >= columns || row >= rows) && (clue.answer.trim() || clue.question.trim() || clue.image))).length;
+  const removed = board.columns.flatMap((column, index) => column.clues.filter((clue, row) => (index >= columns || row >= rows) && (clue.clue.trim() || clue.answer.trim() || clue.image || clue.accepted_answers.length || clue.explanation.trim()))).length;
   if (removed && !await confirmChange(`This removes ${removed} authored clue(s). You can undo this change.`, "Remove clues")) { renderStudio(); return; }
   rememberChange();
   resizeBoard(board, rows, columns);
@@ -399,8 +401,10 @@ export function initStudio() {
     const clue = state.game.boards[state.selectedBoard].columns[state.editingClue.columnIndex].clues[state.editingClue.row];
     const previous = structuredClone(clue);
     if (isBossBoard(state.game.boards[state.selectedBoard])) delete clue.value;
+    clue.clue = $("#clue-text").value;
     clue.answer = $("#clue-answer").value;
-    clue.question = $("#clue-question").value;
+    clue.accepted_answers = $("#clue-aliases").value.split("\n").map(answer => answer.trim()).filter(Boolean);
+    clue.explanation = $("#clue-explanation").value;
     clue.image = state.pendingClueImage;
     if (!saveGame()) {
       for (const key of Object.keys(clue)) delete clue[key];
@@ -448,7 +452,7 @@ export function initStudio() {
   });
   $("#preview-button").addEventListener("click", () => {
     const board = state.game.boards[state.selectedBoard];
-    $("#preview-content").innerHTML = board.columns.map(column => `<section><h3>${escapeHtml(column.topic || "Untitled topic")}</h3>${column.clues.map(clue => `<article class="preview-clue"><span class="clue-points">${clue.value ? `${clue.value} points` : "Boss wager"}</span><p>${escapeHtml(clue.answer || "No clue yet")}</p>${clue.image ? `<img src="${escapeHtml(clue.image)}" alt="Clue image" />` : ""}<details><summary>Reveal response</summary><p>${escapeHtml(clue.question || "No response yet")}</p></details></article>`).join("")}</section>`).join("");
+    $("#preview-content").innerHTML = board.columns.map(column => `<section><h3>${escapeHtml(column.topic || "Untitled topic")}</h3>${column.clues.map(clue => `<article class="preview-clue"><span class="clue-points">${clue.value ? `${clue.value} points` : "Boss wager"}</span><p>${escapeHtml(clue.clue || "No clue yet")}</p>${clue.image ? `<img src="${escapeHtml(clue.image)}" alt="Clue image" />` : ""}<details><summary>Reveal response</summary><p>${escapeHtml(clue.answer || "No response yet")}</p>${answerDetails(clue)}</details></article>`).join("")}</section>`).join("");
     $("#author-preview").showModal();
   });
   $("#import-button").addEventListener("click", () => elements.fileInput.click());

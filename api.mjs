@@ -1,5 +1,5 @@
 import { handleDaily } from "./daily.mjs";
-import { normalizeGame } from "./core.mjs?v=0.3.2";
+import { normalizeGame } from "./core.mjs?v=0.6.0";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 const ROOM_TTL_MS = 6 * 60 * 60 * 1000;
@@ -79,7 +79,7 @@ export async function handleApi(request, env) {
         FROM games g WHERE g.id = ?
       `).bind(gameMatch[1]).first();
       if (!row) return error("Game not found.", 404);
-      return json({ game: { ...gameSummary(row), data: JSON.parse(row.game_json) } });
+      return json({ game: { ...gameSummary(row), data: normalizeGame(JSON.parse(row.game_json)) } });
     }
 
     const playMatch = path.match(/^\/api\/games\/([a-f0-9-]+)\/plays$/i);
@@ -192,7 +192,7 @@ export class TriviaRoom {
       const body = await request.json();
       const host_token = crypto.randomUUID();
       const room = {
-        game: body.game,
+        game: normalizeGame(body.game),
         host_token,
         expires_at: this.now() + ROOM_TTL_MS,
         players: [],
@@ -212,6 +212,7 @@ export class TriviaRoom {
       if (room) await this.state.storage.deleteAll();
       return error("That room is closed or has expired.", 404);
     }
+    room.game = normalizeGame(room.game);
     if (await this.settleTimeout(room)) await this.persist(room);
 
     if (path === "/close" && request.method === "POST") {
@@ -392,7 +393,7 @@ export class TriviaRoom {
         deadline: active.deadline,
         topic: location?.column.topic || "Untitled topic",
         value: location?.clue.value || 0,
-        ...(active.phase === "open" ? { clue: location?.clue.answer || "No clue was provided.", image: location?.clue.image || "" } : {}),
+        ...(active.phase === "open" ? { clue: location?.clue.clue || "No clue was provided.", image: location?.clue.image || "" } : {}),
         ...(host && active.answer !== null ? { submitted_answer: active.answer } : {}),
       };
     }

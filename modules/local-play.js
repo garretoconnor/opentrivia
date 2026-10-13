@@ -4,11 +4,11 @@ import {
   gradeBossGuess,
   isBossBoard,
   setWager,
-} from "../core.mjs?v=0.3.2";
-import { api } from "./data.js?v=0.5.2";
-import { rateGame, recordLocalPlay } from "./library.js?v=0.5.2";
-import { $, elements, escapeHtml, formatText, switchView, toast } from "./render.js?v=0.5.2";
-import { saveGame, state } from "./state.js?v=0.5.2";
+} from "../core.mjs?v=0.6.0";
+import { api } from "./data.js?v=0.6.0";
+import { rateGame, recordLocalPlay } from "./library.js?v=0.6.0";
+import { $, elements, escapeHtml, formatText, answerDetails, switchView, toast } from "./render.js?v=0.6.0";
+import { saveGame, state } from "./state.js?v=0.6.0";
 
 let openHostedPlayCard = () => {};
 let closeHostedRoom = () => {};
@@ -146,7 +146,7 @@ function openPlayCard(columnIndex, row) {
     </div>
     <h2>Clue</h2>
     ${clue.image ? `<img class="play-clue-image" src="${escapeHtml(clue.image)}" alt="Image for this clue">` : ""}
-    <p class="revealed-answer">${formatText(clue.answer || "No clue was provided.")}</p>
+    <p class="revealed-answer">${formatText(clue.clue || "No clue was provided.")}</p>
     <button class="button secondary" id="reveal-response-button" type="button">Reveal correct response</button>
     <div id="response-area" hidden></div>`;
   $("#dismiss-card-button").addEventListener("click", () => elements.cardDialog.close());
@@ -154,7 +154,7 @@ function openPlayCard(columnIndex, row) {
     event.currentTarget.hidden = true;
     const response = $("#response-area");
     response.hidden = false;
-    response.innerHTML = `<div class="correct-response"><strong>Correct response</strong><br>${formatText(clue.question || "No response was provided.")}</div><div class="scoring-grid" id="normal-scoring"></div><div class="dialog-actions"><button class="button primary" id="close-card-button" type="button">Back to board</button></div>`;
+    response.innerHTML = `<div class="correct-response"><strong>Correct response</strong><br>${formatText(clue.answer || "No response was provided.")}${answerDetails(clue)}</div><div class="scoring-grid" id="normal-scoring"></div><div class="dialog-actions"><button class="button primary" id="close-card-button" type="button">Back to board</button></div>`;
     renderNormalScoring($("#normal-scoring"), clue.value);
     $("#close-card-button").addEventListener("click", () => { elements.cardDialog.close(); renderPlayRound(); });
   });
@@ -229,7 +229,7 @@ function renderBossRound() {
       }
     });
   } else if (state.session.bossPhase === "clue") {
-    card.innerHTML = `<div class="eyebrow">${escapeHtml(column.topic)}</div>${clue.image ? `<img class="boss-clue-image" src="${escapeHtml(clue.image)}" alt="Image for this clue">` : ""}<h2>${formatText(clue.answer || "No clue was provided.")}</h2><p>Wagers are locked. Give every player time to think before collecting responses.</p><div class="boss-actions"><button class="button primary" id="collect-guesses" type="button">Collect responses</button></div>`;
+    card.innerHTML = `<div class="eyebrow">${escapeHtml(column.topic)}</div>${clue.image ? `<img class="boss-clue-image" src="${escapeHtml(clue.image)}" alt="Image for this clue">` : ""}<h2>${formatText(clue.clue || "No clue was provided.")}</h2><p>Wagers are locked. Give every player time to think before collecting responses.</p><div class="boss-actions"><button class="button primary" id="collect-guesses" type="button">Collect responses</button></div>`;
     $("#collect-guesses").addEventListener("click", () => { state.session.bossPhase = "guess"; renderBossRound(); });
   } else if (state.session.bossPhase === "guess") {
     const eligible = state.session.players.filter((player) => !player.eliminated && player.wager);
@@ -258,7 +258,7 @@ function renderBossRound() {
 
 function renderBossGrading(card, clue) {
   const eligible = state.session.players.filter((player) => !player.eliminated && player.wager);
-  card.innerHTML = `<div class="eyebrow">Correct response</div><h2>${formatText(clue.question || "No response was provided.")}</h2><p>Mark each response. Correct players win their wager; incorrect players lose it.</p><div class="grading-list" id="grading-list"></div><div class="boss-actions"><button class="button primary" id="finish-boss" type="button">${state.session.boardIndex === state.game.boards.length - 1 ? "Finish game" : "Next round →"}</button></div>`;
+  card.innerHTML = `<div class="eyebrow">Correct response</div><h2>${formatText(clue.answer || "No response was provided.")}</h2>${answerDetails(clue)}<p>Mark each response. Correct players win their wager; incorrect players lose it.</p><div class="grading-list" id="grading-list"></div><div class="boss-actions"><button class="button primary" id="finish-boss" type="button">${state.session.boardIndex === state.game.boards.length - 1 ? "Finish game" : "Next round →"}</button></div>`;
   const list = $("#grading-list");
   list.replaceChildren(...eligible.map((player) => {
     const row = document.createElement("div");

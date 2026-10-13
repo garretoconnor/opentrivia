@@ -1,8 +1,8 @@
-import { editStudioClue } from "./studio.js?v=0.5.2";
-import { difficultySymbol, normalizeGame } from "../core.mjs?v=0.3.2";
-import { allowsLocalFallback, api } from "./data.js?v=0.5.2";
-import { $, elements, escapeHtml, switchView, toast } from "./render.js?v=0.5.2";
-import { localLibrary, saveGame, saveLocalLibrary, state, voterId } from "./state.js?v=0.5.2";
+import { editStudioClue } from "./studio.js?v=0.6.0";
+import { difficultySymbol, normalizeGame } from "../core.mjs?v=0.6.0";
+import { allowsLocalFallback, api } from "./data.js?v=0.6.0";
+import { $, elements, escapeHtml, switchView, toast } from "./render.js?v=0.6.0";
+import { localLibrary, saveGame, saveLocalLibrary, state, voterId } from "./state.js?v=0.6.0";
 
 let showSetup = () => {};
 let hostPublishedGame = () => {};
@@ -103,7 +103,7 @@ function reviewPublication() {
   const clues = state.game.boards.flatMap(board => board.columns.flatMap(column => column.clues));
   const missing = [];
   state.game.boards.forEach((board, boardIndex) => board.columns.forEach((column, columnIndex) => column.clues.forEach((clue, row) => {
-    if (!clue.answer.trim() || !clue.question.trim()) missing.push({ boardIndex, columnIndex, row, label: `Round ${boardIndex + 1} · ${column.topic || "Untitled topic"} · Clue ${row + 1}` });
+    if (!clue.clue.trim() || !clue.answer.trim()) missing.push({ boardIndex, columnIndex, row, label: `Round ${boardIndex + 1} · ${column.topic || "Untitled topic"} · Clue ${row + 1}` });
   })));
   $("#publish-error").textContent = "";
   $("#publish-summary").innerHTML = `<h3>${escapeHtml(state.game.name || "Untitled game")}</h3>${state.game.hero_image ? `<img src="${escapeHtml(state.game.hero_image)}" alt="Game cover" />` : ""}${state.game.adult_content ? '<p><span class="adult-badge">18+</span> Contains adult content</p>' : ""}<p>${state.game.boards.length} rounds · ${clues.length - missing.length}/${clues.length} clues complete</p>${missing.length ? '<p>Finish these clues before publishing:</p><ul class="publish-issues"></ul>' : '<p>All clues have a clue and a correct response.</p>'}`;

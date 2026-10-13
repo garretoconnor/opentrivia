@@ -1,3 +1,6 @@
+import { matchesAnswer } from './core.mjs';
+export { normalizeAnswer } from './core.mjs';
+
 const DAY_MS = 86_400_000;
 const OFFSET_MS = 7 * 60 * 60 * 1000;
 const COOKIE = 'opentrivia_daily';
@@ -23,9 +26,6 @@ export function calendarSeason(day) {
     starts_on: `${startYear}-${startMonth}-01`,
     ends_on: `${name === 'Winter' ? startYear + 1 : startYear}-${endMonth}-01`,
   };
-}
-export function normalizeAnswer(answer) {
-  return answer.normalize('NFKC').trim().toLocaleLowerCase('en-US').replace(/\s+/gu, ' ');
 }
 function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), { status, headers: {
@@ -56,8 +56,8 @@ async function current(DB, now) {
   if (!season) return { day, season: null, challenge: null };
   // One atomic statement chooses and snapshots a question. Racing requests share the day PK.
   await DB.prepare(`INSERT INTO daily_challenges
-    (day, season_id, question_id, prompt, answer, accepted_answers, explanation)
-    SELECT ?, ?, q.id, q.prompt, q.answer, q.accepted_answers, q.explanation
+    (day, season_id, question_id, topic, clue, answer, image, accepted_answers, explanation)
+    SELECT ?, ?, q.id, q.topic, q.clue, q.answer, q.image, q.accepted_answers, q.explanation
     FROM daily_questions q WHERE q.enabled = 1
       AND NOT EXISTS (SELECT 1 FROM daily_challenges WHERE question_id = q.id)
       AND NOT EXISTS (SELECT 1 FROM daily_challenges WHERE day = ?)
@@ -116,8 +116,7 @@ export async function handleDaily(request, env, now = () => Date.now()) {
     if (body?.day !== day || triviaDay(now()) !== day) return fail('The daily question has changed. Refresh to play the new question.', 409);
     if (!challenge) return fail('No question is available today.', 409);
     if (typeof body.answer !== 'string' || !body.answer.trim() || body.answer.length > 300) return fail('Enter an answer of 1–300 characters.');
-    const aliases = JSON.parse(challenge.accepted_answers).filter(value => typeof value === 'string');
-    const points = [challenge.answer, ...aliases].some(answer => normalizeAnswer(answer) === normalizeAnswer(body.answer)) ? 1 : 0;
+    const points = matchesAnswer({ ...challenge, accepted_answers: JSON.parse(challenge.accepted_answers) }, body.answer) ? 1 : 0;
     const inserted = await DB.prepare(`INSERT INTO daily_attempts (day, player_id, answer, points, submitted_at)
       VALUES (?, ?, ?, ?, ?) ON CONFLICT(day, player_id) DO NOTHING`)
       .bind(day, id, body.answer.trim(), points, new Date(timestamp).toISOString()).run();
@@ -131,7 +130,7 @@ export async function handleDaily(request, env, now = () => Date.now()) {
   ]);
   return json({ day, server_time: new Date(timestamp).toISOString(), rolls_over_at: nextRollover(timestamp),
     season, player: player ? { name: player.name } : null,
-    question: challenge ? { prompt: challenge.prompt } : null,
+    question: challenge ? { topic: challenge.topic, clue: challenge.clue, image: challenge.image } : null,
     result: result(attempt, challenge),
     unavailable_reason: !season ? 'No season is active yet.' : !challenge ? 'The question bank has no unused published questions. Check back soon.' : null,
     leaderboards: { daily, season: aggregate },

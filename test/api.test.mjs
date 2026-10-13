@@ -125,8 +125,8 @@ async function liveRoom() {
   let currentTime = 1_000_000;
   room.now = () => currentTime;
   const game = createGame();
-  game.boards[0].columns[0].clues[0].answer = "A ringed planet";
-  game.boards[0].columns[0].clues[0].question = "What is Saturn?";
+  game.boards[0].columns[0].clues[0].clue = "A ringed planet";
+  game.boards[0].columns[0].clues[0].answer = "What is Saturn?";
   const created = await roomCall(room, "create", { method: "POST", body: { game } });
   const hostToken = created.body.host_token;
   const ada = await roomCall(room, "players", { method: "POST", body: { name: "Ada" } });
@@ -196,4 +196,37 @@ test("publication derives clue values from current rows and exposes the 18+ labe
   assert.equal(selected.game.data.boards[0].columns[0].clues[0].value, 75);
   const listing = await body(await handleApi(new Request("https://example.test/api/games"), { DB }));
   assert.equal(listing.games[0].adult_content, true);
+});
+
+test("existing published games and stored rooms preserve legacy clue meanings", async () => {
+  const game = createGame();
+  for (const board of game.boards) for (const column of board.columns) {
+    column.clues = column.clues.map(clue => {
+      const legacy = { ...clue, answer: "A ringed planet", question: "Saturn" };
+      delete legacy.clue;
+      delete legacy.accepted_answers;
+      delete legacy.explanation;
+      return legacy;
+    });
+  }
+  const DB = new MemoryD1();
+  const id = crypto.randomUUID();
+  DB.games.push({ id, title: game.name, hero_image: '', difficulty: 'medium', game_json: JSON.stringify(game) });
+  const selected = await body(await handleApi(new Request(`https://example.test/api/games/${id}`), { DB }));
+  assert.equal(selected.game.data.boards[0].columns[0].clues[0].clue, "A ringed planet");
+  assert.equal(selected.game.data.boards[0].columns[0].clues[0].answer, "Saturn");
+
+  const storage = new MemoryRoomStorage();
+  const room = new TriviaRoom({ storage });
+  const created = await roomCall(room, 'create', { method: 'POST', body: { game: createGame() } });
+  // Simulate a room saved by the old Worker before the content rename.
+  const stored = await storage.get('room');
+  stored.game = game;
+  stored.started = true;
+  await storage.put('room', stored);
+  const shown = await roomCall(room, 'clues', { method: 'POST', hostToken: created.body.host_token,
+    body: { board_index: 0, column_index: 0, row: 0 } });
+  assert.equal(shown.response.status, 200);
+  assert.equal(shown.body.room.active_clue.clue, "A ringed planet");
+  assert.equal(JSON.stringify(shown.body.room).includes('Saturn'), false);
 });
