@@ -44,4 +44,4 @@ jobs:
         run: npm run build:worker
 
       - name: Validate built Worker
-        run: npx cf deploy --prebuilt --dry-run
+        run: npm run deploy:prebuilt -- --dry-run
