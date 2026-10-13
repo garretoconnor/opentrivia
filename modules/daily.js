@@ -1,6 +1,6 @@
-import { api } from './data.js';
-import { $, escapeHtml } from './render.js';
-import { state } from './state.js';
+import { api } from './data.js?v=0.5.2';
+import { $, escapeHtml } from './render.js?v=0.5.2';
+import { state } from './state.js?v=0.5.2';
 
 let snapshot;
 let rolloverTimer;

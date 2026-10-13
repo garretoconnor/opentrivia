@@ -12,6 +12,31 @@ export const LIMITS = Object.freeze({
 
 export const DIFFICULTIES = Object.freeze(["easy", "medium", "hard"]);
 
+export function defaultRowValues(step = 200) {
+  return Array.from({ length: LIMITS.maxRows }, (_, row) => (row + 1) * step);
+}
+
+// Clue values remain a derived snapshot for board exports and existing players.
+export function applyRowValues(game) {
+  for (const board of game.boards) {
+    for (const column of board.columns) column.clues.forEach((clue, row) => {
+      if (isBossBoard(board)) delete clue.value;
+      else clue.value = game.row_values[row];
+    });
+  }
+  return game;
+}
+
+export function reorderClue(game, boardIndex, columnIndex, from, to) {
+  const board = game.boards[boardIndex];
+  if (!board || isBossBoard(board)) return false;
+  const column = board.columns[columnIndex];
+  if (!column || !Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < 0 || from >= column.clues.length || to >= column.clues.length || from === to) return false;
+  column.clues.splice(to, 0, column.clues.splice(from, 1)[0]);
+  applyRowValues(game);
+  return true;
+}
+
 const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 
 export function createClue(row) {
@@ -44,6 +69,8 @@ export function createGame() {
     size: boards.length,
     difficulty: "medium",
     hero_image: "",
+    adult_content: false,
+    row_values: defaultRowValues(),
     boards,
   };
 }
@@ -121,14 +148,37 @@ export function normalizeGame(input) {
   if (!Number.isInteger(game.size) || game.size < 1) throw new Error("game.size must be an integer of at least 1.");
   if (!Array.isArray(game.boards)) throw new Error("game.boards must be an array.");
   if (game.boards.length !== game.size) throw new Error(`game.boards must contain exactly ${game.size} boards.`);
-  return {
+  if (game.adult_content !== undefined && typeof game.adult_content !== "boolean") throw new Error("game.adult_content must be a boolean.");
+  const rowValues = game.row_values === undefined ? defaultRowValues() : game.row_values;
+  if (!Array.isArray(rowValues) || rowValues.length < 1 || rowValues.length > LIMITS.maxRows || rowValues.some(value => !Number.isSafeInteger(value) || value < 1)) {
+    throw new Error("game.row_values must contain 1 to 16 positive safe integers.");
+  }
+  const values = defaultRowValues();
+  rowValues.forEach((value, row) => { values[row] = value; });
+  const boards = game.boards.map((board, index) => normalizeBoard(game.row_values === undefined ? board : {
+    ...board,
+    columns: Array.isArray(board?.columns) ? board.columns.map(column => ({
+      ...column,
+      clues: Array.isArray(column?.clues) ? column.clues.map((clue, row) => isObject(clue) ? { ...clue, value: values[row] } : clue) : column?.clues,
+    })) : board?.columns,
+  }, `game.boards[${index}]`));
+  // Legacy games adopt the first standard topic's values for each row.
+  if (game.row_values === undefined) {
+    for (let row = 0; row < LIMITS.maxRows; row++) {
+      const clue = boards.filter(board => !isBossBoard(board)).flatMap(board => board.columns).find(column => column.clues[row])?.clues[row];
+      if (Number.isSafeInteger(clue?.value) && clue.value > 0) values[row] = clue.value;
+    }
+  }
+  return applyRowValues({
     name: game.name,
     num_players: game.num_players,
     size: game.size,
     difficulty,
     hero_image: game.hero_image ?? "",
-    boards: game.boards.map((board, index) => normalizeBoard(board, `game.boards[${index}]`)),
-  };
+    adult_content: game.adult_content ?? false,
+    row_values: values,
+    boards,
+  });
 }
 
 export function difficultySymbol(difficulty) {

@@ -1,5 +1,5 @@
 import { handleDaily } from "./daily.mjs";
-import { normalizeGame } from "./core.mjs?v=0.3.1";
+import { normalizeGame } from "./core.mjs?v=0.3.2";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 const ROOM_TTL_MS = 6 * 60 * 60 * 1000;
@@ -25,6 +25,7 @@ function gameSummary(row) {
     title: row.title,
     hero_image: row.hero_image,
     difficulty: row.difficulty,
+    adult_content: Boolean(row.adult_content ?? (row.game_json ? JSON.parse(row.game_json).adult_content : false)),
     score: Number(row.score || 0),
     weekly_plays: Number(row.weekly_plays || 0),
   };
@@ -45,6 +46,7 @@ export async function handleApi(request, env) {
       if (!env.DB) return error("The public library is not configured.", 503);
       const result = await env.DB.prepare(`
         SELECT g.id, g.title, g.hero_image, g.difficulty,
+          COALESCE(json_extract(g.game_json, '$.adult_content'), 0) AS adult_content,
           COALESCE(SUM(v.value), 0) AS score,
           (SELECT COUNT(*) FROM plays p WHERE p.game_id = g.id AND p.played_at >= datetime('now', '-7 days')) AS weekly_plays
         FROM games g LEFT JOIN votes v ON v.game_id = g.id
@@ -64,7 +66,7 @@ export async function handleApi(request, env) {
         INSERT INTO games (id, title, hero_image, difficulty, game_json)
         VALUES (?, ?, ?, ?, ?)
       `).bind(id, game.name.trim(), game.hero_image, game.difficulty, JSON.stringify(game)).run();
-      return json({ game: { id, title: game.name.trim(), hero_image: game.hero_image, difficulty: game.difficulty, score: 0, weekly_plays: 0 } }, 201);
+      return json({ game: { id, title: game.name.trim(), hero_image: game.hero_image, difficulty: game.difficulty, adult_content: game.adult_content, score: 0, weekly_plays: 0 } }, 201);
     }
 
     const gameMatch = path.match(/^\/api\/games\/([a-f0-9-]+)$/i);

@@ -1,4 +1,4 @@
-import { createGame, normalizeGame } from "../core.mjs?v=0.3.1";
+import { applyRowValues, createGame, normalizeGame } from "../core.mjs?v=0.3.2";
 
 export const STORAGE_KEY = "opentrivia.game.v0.2";
 export const LEGACY_STORAGE_KEY = "opentrivia.game.v0.1";
@@ -35,6 +35,7 @@ export const state = {
 
 export function saveGame() {
   state.game.size = state.game.boards.length;
+  applyRowValues(state.game);
   const status = typeof document !== "undefined" ? document.getElementById("save-status") : null;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state.game));
