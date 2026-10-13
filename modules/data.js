@@ -1,11 +1,12 @@
+import { state } from './state.js?v=0.9.1';
 export async function api(path, options = {}) {
   const response = await fetch(path, {
     ...options,
-    headers: { "content-type": "application/json", ...(options.headers || {}) },
+    headers: { "content-type": "application/json", "x-opentrivia-account": state.account?.id || "guest", ...(options.headers || {}) },
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const requestError = new Error(body.error || `Request failed (${response.status}).`);
+    const requestError = new Error((typeof body.error === "string" ? body.error : body.message) || `Request failed (${response.status}).`);
     requestError.status = response.status;
     throw requestError;
   }

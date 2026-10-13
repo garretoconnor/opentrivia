@@ -1,11 +1,11 @@
-import { applyRowValues, createGame, normalizeGame } from "../core.mjs?v=0.6.0";
+import { applyRowValues, createGame, normalizeGame } from "../core.mjs?v=0.9.1";
 
 export const STORAGE_KEY = "opentrivia.game.v0.2";
 export const LEGACY_STORAGE_KEY = "opentrivia.game.v0.1";
 export const LOCAL_LIBRARY_KEY = "opentrivia.library.v0.2";
 export const VOTER_KEY = "opentrivia.voter.v0.2";
 
-function loadGame() {
+export function loadGuestGame() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
     return saved ? normalizeGame(JSON.parse(saved)) : createGame();
@@ -14,9 +14,12 @@ function loadGame() {
   }
 }
 
-const initialGame = loadGame();
+const initialGame = loadGuestGame();
+let persistence = () => null;
+export function configurePersistence(handler) { persistence = handler; }
 
 export const state = {
+  account: null,
   game: initialGame,
   authoredGame: initialGame,
   selectedBoard: 0,
@@ -36,6 +39,8 @@ export const state = {
 export function saveGame() {
   state.game.size = state.game.boards.length;
   applyRowValues(state.game);
+  const handled = persistence(state.game);
+  if (handled !== null) return handled;
   const status = typeof document !== "undefined" ? document.getElementById("save-status") : null;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state.game));

@@ -14,7 +14,7 @@ test('prebuilt deployment retains bindings and exports and uploads the existing 
     await mkdir(join(directory, 'bundle'), { recursive: true });
     await writeFile(join(directory, 'bundle/index.js'), 'export default { fetch() { return new Response("test"); } };');
     const worker = { name: 'test-worker', compatibilityDate: '2026-08-01',
-      env: { DB: { type: 'd1', name: 'test-db', id: '5951b3b3-d55d-4e4f-ad61-c62840ba4e3c' },
+      env: { AUTH_EMAIL: { type: 'send-email', allowedSenderAddresses: ['bot@okener.com'] }, AUTH_EMAIL_FROM: { type: 'text', value: 'bot@okener.com' }, DB: { type: 'd1', name: 'test-db', id: '5951b3b3-d55d-4e4f-ad61-c62840ba4e3c' },
         ROOMS: { type: 'durable-object', worker: 'test-worker', exportName: 'TriviaRoom' } },
       exports: { TriviaRoom: { type: 'durable-object', storage: 'sqlite' } },
       manifest: { type: 'complete', mainModule: 'index.js', modules: { 'index.js': { type: 'esm' } } } };
@@ -31,6 +31,8 @@ test('prebuilt deployment retains bindings and exports and uploads the existing 
     assert.equal(config.build, undefined);
     assert.equal(config.d1_databases[0].database_id, worker.env.DB.id);
     assert.equal(config.durable_objects.bindings[0].class_name, 'TriviaRoom');
+    assert.deepEqual(config.send_email, [{ name: 'AUTH_EMAIL', allowed_sender_addresses: ['bot@okener.com'] }]);
+    assert.equal(config.vars.AUTH_EMAIL_FROM, 'bot@okener.com');
     assert.equal(config.exports.TriviaRoom.storage, 'sqlite');
     assert.equal(await readFile(config.main, 'utf8'), before);
     await writeFile(join(output, 'config.json'), JSON.stringify({ buildContext: { isPreview: true } }));

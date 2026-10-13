@@ -1,3 +1,4 @@
+import { resolveAccount } from './auth.mjs';
 import { matchesAnswer } from './core.mjs';
 export { normalizeAnswer } from './core.mjs';
 
@@ -88,13 +89,24 @@ export async function handleDaily(request, env, now = () => Date.now()) {
     const origin = request.headers.get('origin');
     if (origin && origin !== new URL(request.url).origin) return fail('Invalid request origin.', 403);
   }
-  let id = playerId(request);
+  const account = await resolveAccount(request, env);
+  const expectedAccount = request.headers.get('x-opentrivia-account');
+  if (expectedAccount && expectedAccount !== (account?.id || 'guest')) return fail('Your account changed in another tab. Reload to continue.', 409);
+  if (path === '/api/daily/claim' && request.method === 'POST') {
+    const { claimDaily } = await import('./accounts.mjs');
+    return claimDaily(request, DB, account);
+  }
+  let id = account?.id || playerId(request);
+  // Claimed guest cookies can no longer read or mutate the transferred identity.
+  if (!account && id && await DB.prepare('SELECT player_id FROM daily_claims WHERE player_id = ?').bind(id).first()) id = null;
+  if (!account && id && await DB.prepare('SELECT id FROM daily_players WHERE id = ? AND account_id IS NOT NULL').bind(id).first()) id = null;
   if (path === '/api/daily/player' && request.method === 'POST') {
     let body;
     try { body = await readBody(request); } catch (error) { return fail(error.message); }
     const name = typeof body?.name === 'string' ? body.name.trim() : '';
     if (!name || name.length > 30) return fail('Enter a name of 1–30 characters.');
-    const existing = id && await DB.prepare('SELECT * FROM daily_players WHERE id = ?').bind(id).first();
+    if (account) return fail('Your daily display name comes from your account.', 409);
+    const existing = id && await DB.prepare('SELECT * FROM daily_players WHERE id = ? AND account_id IS NULL').bind(id).first();
     if (!existing) id = crypto.randomUUID();
     await DB.prepare(`INSERT INTO daily_players (id, name) VALUES (?, ?)
       ON CONFLICT(id) DO UPDATE SET name = excluded.name`).bind(id, name).run();
@@ -122,7 +134,7 @@ export async function handleDaily(request, env, now = () => Date.now()) {
 
   const timestamp = now();
   const { day, season, challenge } = await current(DB, timestamp);
-  let player = id && await DB.prepare('SELECT * FROM daily_players WHERE id = ?').bind(id).first();
+  let player = id && await DB.prepare('SELECT * FROM daily_players WHERE id = ? AND (account_id IS NULL OR account_id = ?)').bind(id, account?.id || '').first();
   let cookieHeaders = {};
   if (path !== '/api/daily') {
     let body;
@@ -144,7 +156,7 @@ export async function handleDaily(request, env, now = () => Date.now()) {
       if (typeof body.answer !== 'string' || !body.answer.trim() || body.answer.length > 300) return fail('Enter an answer of 1–300 characters.');
       const run = await DB.prepare('SELECT * FROM daily_runs WHERE day = ? AND player_id = ?').bind(day, id).first();
       if (!run) return fail('Press Play before answering.', 409);
-      if (body.name !== undefined) {
+      if (body.name !== undefined && !account) {
         if (typeof body.name !== 'string' || !body.name.trim() || body.name.trim().length > 30) return fail('Enter a name of 1–30 characters.');
         await DB.prepare('UPDATE daily_players SET name = ? WHERE id = ?').bind(body.name.trim(), id).run();
       }
@@ -164,7 +176,7 @@ export async function handleDaily(request, env, now = () => Date.now()) {
     season ? leaderboard(DB, day, season.id, 'season') : [],
   ]);
   return json({ day, server_time: new Date(timestamp).toISOString(), rolls_over_at: nextRollover(timestamp),
-    season, player: player ? { name: player.name } : null,
+    season, identity: account ? `account:${account.id}` : id ? `guest:${id}` : null, account: Boolean(account), player: player ? { name: player.name } : null,
     question: challenge ? { topic: challenge.topic, ...((run || attempt) ? { clue: challenge.clue, image: challenge.image } : {}) } : null,
     run: run ? { started_at: run.started_at, voided: Boolean(run.voided) } : null,
     result: result(attempt, challenge),

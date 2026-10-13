@@ -1,11 +1,12 @@
-import { initDaily, loadDaily } from "./modules/daily.js?v=0.7.0";
-import { closeHostedRoom, hostPublished, initHost, openHostedPlayCard } from "./modules/host.js?v=0.6.0";
-import { initLibrary, loadLibrary } from "./modules/library.js?v=0.6.0";
-import { initLocalPlay, showSetup } from "./modules/local-play.js?v=0.6.0";
-import { initPlayer } from "./modules/player.js?v=0.6.0";
-import { $, configureViewRenderers, elements, switchView } from "./modules/render.js?v=0.6.0";
-import { initStudio, renderStudio } from "./modules/studio.js?v=0.6.0";
-import { state } from "./modules/state.js?v=0.6.0";
+import { initAccounts } from './modules/accounts.js?v=0.9.1';
+import { initDaily, loadDaily, resetDailyIdentity } from "./modules/daily.js?v=0.9.1";
+import { closeHostedRoom, hostPublished, initHost, openHostedPlayCard } from "./modules/host.js?v=0.9.1";
+import { initLibrary, loadLibrary } from "./modules/library.js?v=0.9.1";
+import { initLocalPlay, showSetup } from "./modules/local-play.js?v=0.9.1";
+import { initPlayer } from "./modules/player.js?v=0.9.1";
+import { $, configureViewRenderers, elements, switchView } from "./modules/render.js?v=0.9.1";
+import { initStudio, renderStudio } from "./modules/studio.js?v=0.9.1";
+import { state } from "./modules/state.js?v=0.9.1";
 
 initDaily();
 initStudio();
@@ -35,3 +36,5 @@ document.querySelectorAll(".main-nav button").forEach((button) => {
 
 renderStudio();
 switchView("library");
+
+initAccounts({ renderStudio, changed: resetDailyIdentity });

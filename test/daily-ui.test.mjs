@@ -35,7 +35,7 @@ globalThis.setInterval = fn => { intervals.set(++timerId, fn); return timerId; }
 globalThis.clearInterval = id => intervals.delete(id);
 globalThis.setTimeout = () => ++timerId;
 globalThis.clearTimeout = () => {};
-const { state } = await import('../modules/state.js?v=0.6.0');
+const { state } = await import('../modules/state.js?v=0.9.1');
 state.currentView = 'daily';
 const { initDaily, loadDaily } = await import('../modules/daily.js');
 initDaily();
@@ -97,7 +97,7 @@ test('daily UI gates clue and input behind Play and voids on tab, window, and pa
     await surface.fire(event);
     assert.match(get('#daily-timer').textContent, /Time voided/);
     assert.equal(intervals.size, 0);
-    assert.equal(storage.get(`opentrivia.daily.void.${day}`), '1');
+    assert.equal(storage.get(`opentrivia.daily.void.browser.${day}`), '1');
     document.hidden = false;
     await loadDaily();
     assert.match(get('#daily-timer').textContent, /Time voided/);

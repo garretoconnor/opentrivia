@@ -1,5 +1,5 @@
-import { buzzTimer } from "../core.mjs?v=0.6.0";
-import { state } from "./state.js?v=0.6.0";
+import { buzzTimer } from "../core.mjs?v=0.9.1";
+import { state } from "./state.js?v=0.9.1";
 
 export const $ = (selector) => document.querySelector(selector);
 
@@ -48,6 +48,7 @@ export function switchView(view) {
   if (view === "studio") renderStudio();
   if (view === "library") loadLibrary();
   if (view === "daily") loadDaily();
+  document.dispatchEvent(new Event("opentrivia:view"));
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
