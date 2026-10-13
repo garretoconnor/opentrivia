@@ -1,8 +1,8 @@
-import { normalizeGame } from "../core.mjs?v=0.3.2";
-import { allowsLocalFallback, api } from "./data.js?v=0.5.2";
-import { getPublishedGame, recordLocalPlay } from "./library.js?v=0.5.2";
-import { renderPlayRound, renderScoreboard } from "./local-play.js?v=0.5.2";
-import { $, elements, escapeHtml, formatText, switchView, toast, updateBuzzTimers } from "./render.js?v=0.5.2";
+import { normalizeGame } from "../core.mjs?v=0.6.0";
+import { allowsLocalFallback, api } from "./data.js?v=0.6.0";
+import { getPublishedGame, recordLocalPlay } from "./library.js?v=0.6.0";
+import { renderPlayRound, renderScoreboard } from "./local-play.js?v=0.6.0";
+import { $, elements, escapeHtml, formatText, answerDetails, switchView, toast, updateBuzzTimers } from "./render.js?v=0.6.0";
 import {
   localRoomStore,
   makeLocalRoom,
@@ -10,8 +10,8 @@ import {
   saveLocalRooms,
   scheduleRoomPoll,
   stopRoomPolling,
-} from "./rooms.js?v=0.5.2";
-import { state } from "./state.js?v=0.5.2";
+} from "./rooms.js?v=0.6.0";
+import { state } from "./state.js?v=0.6.0";
 
 function hostHeaders() {
   return { "x-host-token": state.hostedRoom?.host_token || "" };
@@ -158,7 +158,7 @@ function renderHostedClue(room) {
     ? `<p class="attempt-notice">${escapeHtml(room.last_result.player_name)} ${room.last_result.outcome === "timeout" ? "ran out of time" : "was ruled incorrect"}. The clue is open again.</p>`
     : "";
   if (active.phase === "open") {
-    elements.cardContent.innerHTML = `<div class="eyebrow">${escapeHtml(column.topic)} · ${clue.value.toLocaleString()} points</div><h2>Clue</h2>${previous}${clue.image ? `<img class="play-clue-image" src="${escapeHtml(clue.image)}" alt="Image for this clue">` : ""}<p class="revealed-answer">${formatText(clue.answer || "No clue was provided.")}</p><div class="buzz-open"><span class="live-dot" aria-hidden="true"></span> Buzzers are open${active.attempt > 1 ? ` · attempt ${active.attempt}` : ""}</div>`;
+    elements.cardContent.innerHTML = `<div class="eyebrow">${escapeHtml(column.topic)} · ${clue.value.toLocaleString()} points</div><h2>Clue</h2>${previous}${clue.image ? `<img class="play-clue-image" src="${escapeHtml(clue.image)}" alt="Image for this clue">` : ""}<p class="revealed-answer">${formatText(clue.clue || "No clue was provided.")}</p><div class="buzz-open"><span class="live-dot" aria-hidden="true"></span> Buzzers are open${active.attempt > 1 ? ` · attempt ${active.attempt}` : ""}</div>`;
     return;
   }
   if (active.phase === "answering") {
@@ -166,7 +166,7 @@ function renderHostedClue(room) {
     updateBuzzTimers();
     return;
   }
-  elements.cardContent.innerHTML = `<div class="eyebrow">Answer submitted</div><h2>${escapeHtml(active.buzzer.name)} answered</h2><blockquote class="submitted-answer">${formatText(active.submitted_answer || "")}</blockquote><div class="correct-response"><strong>Correct response</strong><br>${formatText(clue.question || "No response was provided.")}</div><div class="ruling-actions"><button class="score-button negative" data-ruling="false" type="button">Incorrect · −${clue.value.toLocaleString()}</button><button class="score-button positive" data-ruling="true" type="button">Correct · +${clue.value.toLocaleString()}</button></div>`;
+  elements.cardContent.innerHTML = `<div class="eyebrow">Answer submitted</div><h2>${escapeHtml(active.buzzer.name)} answered</h2><blockquote class="submitted-answer">${formatText(active.submitted_answer || "")}</blockquote><div class="correct-response"><strong>Correct response</strong><br>${formatText(clue.answer || "No response was provided.")}${answerDetails(clue)}</div><div class="ruling-actions"><button class="score-button negative" data-ruling="false" type="button">Incorrect · −${clue.value.toLocaleString()}</button><button class="score-button positive" data-ruling="true" type="button">Correct · +${clue.value.toLocaleString()}</button></div>`;
   elements.cardContent.querySelectorAll("[data-ruling]").forEach((button) => {
     button.addEventListener("click", () => submitHostRuling(button.dataset.ruling === "true"));
   });

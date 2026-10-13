@@ -1,5 +1,5 @@
-import { buzzTimer } from "../core.mjs?v=0.3.2";
-import { state } from "./state.js?v=0.5.2";
+import { buzzTimer } from "../core.mjs?v=0.6.0";
+import { state } from "./state.js?v=0.6.0";
 
 export const $ = (selector) => document.querySelector(selector);
 
@@ -85,4 +85,8 @@ export function updateBuzzTimers() {
     element.classList.toggle("overtime", timer.overtime);
     element.setAttribute("aria-label", `${timer.seconds} seconds remaining${timer.overtime ? " in overtime" : ""}`);
   });
+}
+
+export function answerDetails(clue) {
+  return `${clue.accepted_answers.length ? `<p>Also accepted: ${clue.accepted_answers.map(formatText).join('; ')}</p>` : ''}${clue.explanation ? `<p>${formatText(clue.explanation)}</p>` : ''}`;
 }

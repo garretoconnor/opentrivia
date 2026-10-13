@@ -51,7 +51,7 @@ The original `wrangler.toml` is retained as a conversion reference. Make future 
 
 Published game JSON and uploaded hero/clue images are stored in D1. Room state—including joined players, buzz order, deadlines, rulings, and scores—is serialized by a Durable Object. It expires after six hours and is deleted immediately when the host closes the room.
 
-Boards and complete games can be imported and exported with the JSON format from [`spec_v0_1.md`](spec_v0_1.md), extended in v0.2 with `difficulty`, `hero_image`, and an optional `image` on each clue. Version 0.3 adds live hosted buzzing without changing the game-file schema. Boss clues deliberately have no `value` because their scoring is wager-based.
+Boards and complete games use the current [data model](docs/data-model.md). Clue content uses `clue` for displayed text and `answer` for the correct response, with optional `image`, `accepted_answers`, and `explanation`. Imports still accept the legacy format from [`spec_v0_1.md`](spec_v0_1.md), where `answer` meant displayed text and `question` meant the correct response. Version 0.2 added `difficulty` and `hero_image`; version 0.3 added live hosted buzzing. Boss clues deliberately have no `value` because their scoring is wager-based.
 
 ## Daily trivia
 
@@ -61,7 +61,7 @@ Players choose a public display name. A server-issued, HttpOnly cookie remembers
 
 ### Automatic seasons and question writing
 
-Apply `migrations/0002_daily_trivia.sql` using the deployment migration command above. The migration deliberately creates **no questions**. The app creates seasons automatically on the first request in each season. Manage questions privately through D1 SQL (there is no public bank-writing API). Write a private SQL file and apply it with:
+Apply all pending migrations using the deployment migration command above. `0002_daily_trivia.sql` creates the daily tables; `0003_consistent_question_content.sql` renames `prompt` to `clue` and adds `topic` and `image` to both the question bank and challenge snapshots. Existing content, attempts, and scores are preserved. The column rename requires the updated Worker; coordinate this migration with deployment, since the previous Worker expects `prompt`. The migration deliberately creates **no questions**. The app creates seasons automatically on the first request in each season. Manage questions privately through D1 SQL (there is no public bank-writing API). Write a private SQL file and apply it with:
 
 ```sh
 npx cf d1 query 5951b3b3-d55d-4e4f-ad61-c62840ba4e3c --sql "$(cat /path/to/your-daily-content.sql)"
@@ -85,14 +85,18 @@ Add your own rows to `daily_questions` with these fields:
 | Field | Purpose |
 | --- | --- |
 | `id` | Unique stable text ID you choose |
-| `prompt` | Question text, 1–2,000 characters |
+| `topic` | Topic/category; defaults to an empty string |
+| `clue` | Text shown to players, 1–2,000 characters |
 | `answer` | Canonical correct answer, 1–300 characters |
+| `image` | Optional image URL or data URL; defaults to an empty string |
 | `accepted_answers` | JSON array of alternative accepted strings; defaults to `[]` |
 | `explanation` | Optional explanation revealed after submission |
 | `enabled` | `0` for draft (default), `1` to make it eligible |
 | `queue_order` | Integer; lower values are selected first, then ID |
 
 Grading ignores capitalization, surrounding/repeated whitespace, and Unicode compatibility variants. Punctuation and wording otherwise need to match; add alternate spellings or phrasings to `accepted_answers`. Use SQL parameters or properly escape single quotes in authored SQL. Keep authored content outside the public browser assets.
+
+Daily questions and board clues share the same content fields. A board clue inherits its topic from its column; a daily question stores its own topic. Board clues retain their row-based or wager-based scoring, and hosts continue to judge responses manually. The board editor supports alternative accepted answers and explanations for reference during judging.
 
 Each question is used once across all seasons. The first daily request atomically saves the next eligible unused question and its answers into `daily_challenges`. All players receive that snapshot, including if the bank is later edited or the question disabled. Answers and explanations are only returned after that player submits. If the bank is exhausted, play pauses with an empty state; adding an enabled question makes it available on the next request. Existing leaderboards remain visible. Do not edit challenge snapshots or delete used questions.
 

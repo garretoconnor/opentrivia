@@ -39,7 +39,9 @@ BEGIN SELECT RAISE(ABORT, 'Season dates must not overlap'); END;
 
 CREATE TABLE daily_questions (
   id TEXT PRIMARY KEY,
-  prompt TEXT NOT NULL CHECK(length(trim(prompt)) BETWEEN 1 AND 2000),
+  topic TEXT NOT NULL DEFAULT '',
+  image TEXT NOT NULL DEFAULT '',
+  clue TEXT NOT NULL CHECK(length(trim(clue)) BETWEEN 1 AND 2000),
   answer TEXT NOT NULL CHECK(length(trim(answer)) BETWEEN 1 AND 300),
   accepted_answers TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(accepted_answers) AND json_type(accepted_answers) = 'array'),
   explanation TEXT NOT NULL DEFAULT '',
@@ -50,7 +52,9 @@ CREATE TABLE daily_challenges (
   day TEXT PRIMARY KEY,
   season_id TEXT NOT NULL REFERENCES daily_seasons(id),
   question_id TEXT NOT NULL UNIQUE REFERENCES daily_questions(id),
-  prompt TEXT NOT NULL,
+  topic TEXT NOT NULL DEFAULT '',
+  image TEXT NOT NULL DEFAULT '',
+  clue TEXT NOT NULL,
   answer TEXT NOT NULL,
   accepted_answers TEXT NOT NULL,
   explanation TEXT NOT NULL

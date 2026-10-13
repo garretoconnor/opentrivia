@@ -68,6 +68,8 @@
         <div id="daily-error" role="alert"></div>
         <article class="daily-card" aria-labelledby="daily-question">
           <p id="daily-status" role="status">Loading today’s question…</p>
+          <p class="eyebrow" id="daily-topic"></p>
+          <img class="play-clue-image" id="daily-image" alt="Image for today's clue" hidden />
           <h2 id="daily-question"></h2>
           <p id="daily-identity" class="muted"></p>
           <form id="daily-player-form" hidden>
@@ -180,8 +182,12 @@
       <form method="dialog" id="clue-form">
         <div class="dialog-topline"><div><div class="eyebrow" id="clue-location">Topic · 200</div><h2 id="clue-title">Edit clue</h2></div><button class="icon-button" type="button" id="close-clue-button" aria-label="Close">×</button></div>
         <div class="clue-fields"><p id="clue-save-status" role="status">Changes save when you select Save clue.</p>
-        <label class="field-label" for="clue-answer">Clue shown to players</label><textarea id="clue-answer" name="answer" rows="4" placeholder="e.g. This planet is famous for its rings"></textarea>
-        <label class="field-label" for="clue-question">Correct response</label><textarea id="clue-question" name="question" rows="3" placeholder="e.g. What is Saturn?"></textarea>
+        <label class="field-label" for="clue-text">Clue shown to players</label><textarea id="clue-text" name="clue" rows="4" placeholder="e.g. This planet is famous for its rings"></textarea>
+        <label class="field-label" for="clue-answer">Correct response</label><textarea id="clue-answer" name="answer" rows="3" placeholder="e.g. What is Saturn?"></textarea>
+        <details><summary>Accepted answers and explanation</summary>
+          <label class="field-label" for="clue-aliases">Alternative accepted answers (one per line)</label><textarea id="clue-aliases" name="accepted_answers" rows="3"></textarea>
+          <label class="field-label" for="clue-explanation">Explanation</label><textarea id="clue-explanation" name="explanation" rows="3"></textarea>
+        </details>
         <details id="clue-attachment"><summary>Image attachment (optional)</summary><label class="field-label" for="clue-image-input">Choose an image</label>
         <div class="inline-upload"><input id="clue-image-input" type="file" accept="image/*" /><button class="button quiet" id="remove-clue-image" type="button" hidden>Remove</button></div>
         <img id="clue-image-preview" class="clue-image-preview" alt="Clue preview" hidden />
@@ -195,6 +201,6 @@
     <dialog id="card-dialog" class="dialog play-card-dialog"><div id="card-dialog-content"></div></dialog>
     <input id="file-input" type="file" accept="application/json,.json" hidden />
     <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
-    <script type="module" src="app.js?v=0.5.2"></script>
+    <script type="module" src="app.js?v=0.6.0"></script>
   </body>
 </html>

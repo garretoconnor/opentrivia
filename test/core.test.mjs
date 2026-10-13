@@ -16,6 +16,7 @@ import {
   isBossBoard,
   normalizeBoard,
   normalizeGame,
+  matchesAnswer,
   resizeBoard,
   setWager,
 } from "../core.mjs";
@@ -41,9 +42,9 @@ test("boards support every allowed size and reject out-of-range sizes", () => {
 
 test("resizing preserves existing cards and fills new cards", () => {
   const board = createBoard(2, 2);
-  board.columns[0].clues[0].answer = "Keep me";
+  board.columns[0].clues[0].clue = "Keep me";
   resizeBoard(board, 4, 3);
-  assert.equal(board.columns[0].clues[0].answer, "Keep me");
+  assert.equal(board.columns[0].clues[0].clue, "Keep me");
   assert.equal(board.columns.length, 3);
   assert.equal(board.columns[2].clues.length, 4);
   resizeBoard(board, 1, 1);
@@ -175,11 +176,11 @@ test("row values follow reordered clues across all standard rounds and exports",
   game.row_values[0] = 125; game.row_values[1] = 375;
   game.boards.push(createBoard(2, 2), createBossBoard());
   const column = game.boards[0].columns[0];
-  column.clues[0].answer = "First"; column.clues[0].question = "Response"; column.clues[0].image = "image";
-  column.clues[1].answer = "Second";
+  column.clues[0].clue = "First"; column.clues[0].answer = "Response"; column.clues[0].image = "image";
+  column.clues[1].clue = "Second";
   assert.equal(reorderClue(game, 0, 0, 0, 1), true);
-  assert.equal(column.clues[1].answer, "First");
-  assert.equal(column.clues[1].question, "Response");
+  assert.equal(column.clues[1].clue, "First");
+  assert.equal(column.clues[1].answer, "Response");
   assert.equal(column.clues[1].image, "image");
   assert.equal(column.clues[1].value, 375);
   column.clues[1].value = 9999; // Publishing must disregard stale per-clue values.
@@ -208,4 +209,34 @@ test("game settings survive round trips and reject invalid point values and age 
     assert.throws(() => normalizeGame({ ...game, row_values: invalid }), /row_values/);
   }
   assert.throws(() => normalizeGame({ ...game, adult_content: "yes" }), /adult_content/);
+});
+
+test("legacy board clue naming converts without swapping the correct response", () => {
+  for (const board of [createBoard(2, 1), createBossBoard()]) {
+    const original = board.columns[0].clues[0];
+    const legacy = { ...original, answer: "A ringed planet", question: "Saturn" };
+    delete legacy.clue;
+    delete legacy.accepted_answers;
+    delete legacy.explanation;
+    board.columns[0].clues[0] = legacy;
+    const migrated = normalizeBoard(board).columns[0].clues[0];
+    assert.equal(migrated.clue, "A ringed planet");
+    assert.equal(migrated.answer, "Saturn");
+    assert.deepEqual(migrated.accepted_answers, []);
+    assert.equal(migrated.explanation, "");
+    assert.equal('question' in migrated, false);
+    assert.equal('value' in migrated, !isBossBoard(board));
+  }
+});
+
+test("shared clue content round trips with aliases and explanation", () => {
+  const game = createGame();
+  const clue = game.boards[0].columns[0].clues[0];
+  Object.assign(clue, { clue: "A ringed planet", answer: "Saturn", accepted_answers: ["What is Saturn?"], explanation: "Saturn has rings." });
+  const restored = normalizeGame(JSON.parse(exportGame(game))).boards[0].columns[0].clues[0];
+  assert.deepEqual(restored, clue);
+  assert.equal(matchesAnswer(restored, "  WHAT   IS SATURN?  "), true);
+  assert.equal(matchesAnswer(restored, "Saturn"), true);
+  assert.equal(matchesAnswer(restored, "Jupiter"), false);
+  assert.throws(() => normalizeGame({ ...game, boards: [{ columns: [{ topic: "Space", size: 1, clues: [{ ...clue, accepted_answers: [42] }] }] }] }), /array of strings/);
 });

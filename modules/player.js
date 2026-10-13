@@ -1,6 +1,6 @@
-import { $, elements, escapeHtml, formatText, toast, updateBuzzTimers } from "./render.js?v=0.5.2";
-import { roomRequest, scheduleRoomPoll, stopRoomPolling } from "./rooms.js?v=0.5.2";
-import { state } from "./state.js?v=0.5.2";
+import { $, elements, escapeHtml, formatText, toast, updateBuzzTimers } from "./render.js?v=0.6.0";
+import { roomRequest, scheduleRoomPoll, stopRoomPolling } from "./rooms.js?v=0.6.0";
+import { state } from "./state.js?v=0.6.0";
 
 function playerHeaders() {
   return { "x-player-token": state.joinedRoom?.player_token || "" };

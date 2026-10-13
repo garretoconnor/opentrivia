@@ -1,6 +1,6 @@
-import { api } from './data.js?v=0.5.2';
-import { $, escapeHtml } from './render.js?v=0.5.2';
-import { state } from './state.js?v=0.5.2';
+import { api } from './data.js?v=0.6.0';
+import { $, escapeHtml } from './render.js?v=0.6.0';
+import { state } from './state.js?v=0.6.0';
 
 let snapshot;
 let rolloverTimer;
@@ -16,7 +16,10 @@ function render() {
   const data = snapshot;
   $('#daily-date').textContent = `${data.day} · ${data.season?.name || 'Between seasons'}`;
   $('#daily-status').textContent = data.unavailable_reason || 'One question. One answer. One point for getting it right.';
-  $('#daily-question').textContent = data.question?.prompt || 'Your daily challenge is on its way.';
+  $('#daily-question').textContent = data.question?.clue || 'Your daily challenge is on its way.';
+  $('#daily-topic').textContent = data.question?.topic || '';
+  $('#daily-image').src = data.question?.image || '';
+  $('#daily-image').hidden = !data.question?.image;
   $('#daily-player-form').hidden = !data.question || Boolean(data.player);
   $('#daily-answer-form').hidden = !data.question || !data.player || Boolean(data.result);
   $('#daily-identity').textContent = data.player ? `Playing as ${data.player.name}. Your progress is saved in this browser.` : 'Choose a name to join the leaderboards. Progress is saved in this browser.';

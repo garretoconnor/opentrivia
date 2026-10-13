@@ -34,7 +34,7 @@ globalThis.Option = class extends Element { constructor(text, value) { super(); 
 const storage = new Map();
 let failSave = false;
 globalThis.localStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => { if (failSave) throw new Error('Quota exceeded'); storage.set(key, value); } };
-const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.5.2');
+const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.6.0');
 const { initStudio, renderStudio, editStudioClue } = await import('../modules/studio.js');
 initStudio();
 function reset() { failSave = false; state.game = createGame(); state.authoredGame = state.game; state.selectedBoard = 0; renderStudio(); saveGame(); }
@@ -43,7 +43,7 @@ const clue = () => state.game.boards[0].columns[0].clues[0];
 test('dirty dismissal can keep editing or discard without committing', async () => {
   reset(); editStudioClue(0, 0, 0);
   const before = storage.get(STORAGE_KEY);
-  get('#clue-answer').value = 'Unsaved clue';
+  get('#clue-text').value = 'Unsaved clue';
   let pending = get('#close-clue-button').fire('click');
   assert.equal(get('#studio-confirm').open, true);
   get('#studio-confirm').close('cancel'); await pending;
@@ -56,21 +56,24 @@ test('dirty dismissal can keep editing or discard without committing', async () 
 
 test('save and next persists the clue and advances editing', async () => {
   reset(); editStudioClue(0, 0, 0);
-  get('#clue-answer').value = 'A test clue'; get('#clue-question').value = 'A response';
+  get('#clue-text').value = 'A test clue'; get('#clue-answer').value = 'A response';
+  get('#clue-aliases').value = '  Alternative  \nAnother'; get('#clue-explanation').value = 'Reason';
   await get('#clue-form').fire('submit', { submitter: { value: 'next' } });
-  assert.equal(clue().answer, 'A test clue');
-  assert.equal(JSON.parse(storage.get(STORAGE_KEY)).boards[0].columns[0].clues[0].question, 'A response');
+  assert.equal(clue().clue, 'A test clue');
+  assert.deepEqual(clue().accepted_answers, ['Alternative', 'Another']);
+  assert.equal(clue().explanation, 'Reason');
+  assert.equal(JSON.parse(storage.get(STORAGE_KEY)).boards[0].columns[0].clues[0].answer, 'A response');
   assert.equal(state.editingClue.row, 1);
   assert.equal(get('#clue-dialog').open, true);
 });
 
 test('storage failure keeps the editor draft open and does not commit it', async () => {
   reset(); editStudioClue(0, 0, 0); const before = structuredClone(clue());
-  get('#clue-answer').value = 'Keep this draft'; failSave = true;
+  get('#clue-text').value = 'Keep this draft'; failSave = true;
   await get('#clue-form').fire('submit', { submitter: { value: 'save' } });
   assert.deepEqual(clue(), before);
   assert.equal(get('#clue-dialog').open, true);
-  assert.equal(get('#clue-answer').value, 'Keep this draft');
+  assert.equal(get('#clue-text').value, 'Keep this draft');
   assert.match(get('#clue-save-status').textContent, /Could not save/);
   assert.equal(get('#save-status').dataset.error, 'true');
   failSave = false;
@@ -78,7 +81,7 @@ test('storage failure keeps the editor draft open and does not commit it', async
 
 test('shrinking populated topics requires consent and supports undo', async () => {
   reset(); const board = state.game.boards[0];
-  board.columns[1].clues[0].answer = 'Preserve this'; saveGame();
+  board.columns[1].clues[0].clue = 'Preserve this'; saveGame();
   const before = structuredClone(board);
   get('#column-count').value = '1';
   let pending = get('#column-count').fire('change');
@@ -106,13 +109,13 @@ test('deleting a round can be undone with its content intact', async () => {
 const firstHandle = () => get('#editor-board').children[0].children[1].children[1];
 
 test('keyboard reordering persists row values and supports undo', async () => {
-  reset(); clue().answer = 'Move me'; saveGame();
+  reset(); clue().clue = 'Move me'; saveGame();
   await firstHandle().fire('keydown', { key: 'ArrowDown' });
-  assert.equal(state.game.boards[0].columns[0].clues[1].answer, 'Move me');
+  assert.equal(state.game.boards[0].columns[0].clues[1].clue, 'Move me');
   assert.equal(state.game.boards[0].columns[0].clues[1].value, 400);
   assert.equal(JSON.parse(storage.get(STORAGE_KEY)).boards[0].columns[0].clues[1].value, 400);
   await get('#undo-button').fire('click');
-  assert.equal(clue().answer, 'Move me'); assert.equal(clue().value, 200);
+  assert.equal(clue().clue, 'Move me'); assert.equal(clue().value, 200);
 });
 
 test('row presets and custom values save game-wide and age marking persists', async () => {
@@ -130,9 +133,9 @@ test('row presets and custom values save game-wide and age marking persists', as
 });
 
 test('failed reorder and row point saves restore the previous data', async () => {
-  reset(); clue().answer = 'Keep here'; saveGame(); failSave = true;
+  reset(); clue().clue = 'Keep here'; saveGame(); failSave = true;
   await firstHandle().fire('keydown', { key: 'ArrowDown' });
-  assert.equal(clue().answer, 'Keep here');
+  assert.equal(clue().clue, 'Keep here');
   await get('#row-values-button').fire('click');
   get('#row-values-fields').querySelectorAll('input')[0].value = '999';
   await get('#row-values-form').fire('submit');
@@ -143,18 +146,18 @@ test('failed reorder and row point saves restore the previous data', async () =>
 
 
 test('pointer dragging moves only within the original column', async () => {
-  reset(); clue().answer = 'Dragged clue'; saveGame();
+  reset(); clue().clue = 'Dragged clue'; saveGame();
   let handle = firstHandle();
   await handle.fire('pointerdown', { button: 0, pointerId: 1 });
   document.elementFromPoint = () => get('#editor-board').children[1].children[2];
   await handle.fire('pointermove', { pointerId: 1, clientX: 0, clientY: 0 });
   await handle.fire('pointerup', { pointerId: 1 });
-  assert.equal(clue().answer, 'Dragged clue');
+  assert.equal(clue().clue, 'Dragged clue');
   handle = firstHandle();
   await handle.fire('pointerdown', { button: 0, pointerId: 2 });
   document.elementFromPoint = () => get('#editor-board').children[0].children[3];
   await handle.fire('pointermove', { pointerId: 2, clientX: 0, clientY: 0 });
   await handle.fire('pointerup', { pointerId: 2 });
-  assert.equal(state.game.boards[0].columns[0].clues[2].answer, 'Dragged clue');
+  assert.equal(state.game.boards[0].columns[0].clues[2].clue, 'Dragged clue');
   assert.equal(state.game.boards[0].columns[0].clues[2].value, 600);
 });

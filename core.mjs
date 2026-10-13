@@ -40,7 +40,7 @@ export function reorderClue(game, boardIndex, columnIndex, from, to) {
 const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 
 export function createClue(row) {
-  return { value: (row + 1) * 200, answer: "", question: "", image: "" };
+  return { value: (row + 1) * 200, clue: "", answer: "", image: "", accepted_answers: [], explanation: "" };
 }
 
 export function createBoard(rows = LIMITS.defaultRows, columns = LIMITS.defaultColumns) {
@@ -57,7 +57,7 @@ export function createBoard(rows = LIMITS.defaultRows, columns = LIMITS.defaultC
 
 export function createBossBoard() {
   return {
-    columns: [{ topic: "Boss topic", size: 1, clues: [{ answer: "", question: "", image: "" }] }],
+    columns: [{ topic: "Boss topic", size: 1, clues: [{ clue: "", answer: "", image: "", accepted_answers: [], explanation: "" }] }],
   };
 }
 
@@ -123,18 +123,35 @@ export function normalizeBoard(input, label = "board") {
   };
 }
 
-function normalizeClue(clue, path, boss = false) {
-  if (!isObject(clue)) throw new Error(`${path} must be an object.`);
+function normalizeClue(input, path, boss = false) {
+  if (!isObject(input)) throw new Error(`${path} must be an object.`);
+  // Legacy board files used answer for the clue and question for the response.
+  const clue = 'clue' in input ? input : { ...input, clue: input.answer, answer: input.question };
   if (!boss && !Number.isInteger(clue.value)) throw new Error(`${path}.value must be an integer.`);
+  if (typeof clue.clue !== "string") throw new Error(`${path}.clue must be a string.`);
   if (typeof clue.answer !== "string") throw new Error(`${path}.answer must be a string.`);
-  if (typeof clue.question !== "string") throw new Error(`${path}.question must be a string.`);
   if (clue.image !== undefined && typeof clue.image !== "string") throw new Error(`${path}.image must be a string.`);
+  if (clue.accepted_answers !== undefined && (!Array.isArray(clue.accepted_answers) || clue.accepted_answers.some(answer => typeof answer !== "string"))) {
+    throw new Error(`${path}.accepted_answers must be an array of strings.`);
+  }
+  if (clue.explanation !== undefined && typeof clue.explanation !== "string") throw new Error(`${path}.explanation must be a string.`);
   return {
     ...(boss ? {} : { value: clue.value }),
+    clue: clue.clue,
     answer: clue.answer,
-    question: clue.question,
     image: clue.image ?? "",
+    accepted_answers: clue.accepted_answers ?? [],
+    explanation: clue.explanation ?? "",
   };
+}
+
+export function normalizeAnswer(answer) {
+  return answer.normalize('NFKC').trim().toLocaleLowerCase('en-US').replace(/\s+/gu, ' ');
+}
+
+export function matchesAnswer(question, submittedAnswer) {
+  return [question.answer, ...question.accepted_answers].some(answer =>
+    typeof answer === 'string' && normalizeAnswer(answer) === normalizeAnswer(submittedAnswer));
 }
 
 export function normalizeGame(input) {
