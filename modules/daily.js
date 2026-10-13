@@ -1,8 +1,16 @@
-import { api } from './data.js?v=0.6.0';
-import { $, escapeHtml } from './render.js?v=0.6.0';
-import { state } from './state.js?v=0.6.0';
+import { api } from './data.js?v=0.9.1';
+import { $, escapeHtml } from './render.js?v=0.9.1';
+import { state } from './state.js?v=0.9.1';
 
 let snapshot;
+let identityVersion = 0;
+export function resetDailyIdentity() {
+  identityVersion++; snapshot = null; clearInterval(timer); clearTimeout(rolloverTimer);
+  $("#daily-play").hidden = true; $("#daily-timer").hidden = true; $("#daily-question").hidden = true; $("#daily-image").hidden = true;
+  $("#daily-answer-form").hidden = true; $("#daily-result").hidden = true; $("#daily-identity").textContent = "";
+  $("#daily-answer").value = ""; $("#daily-name").value = "";
+  if (state.currentView === "daily") loadDaily();
+}
 let rolloverTimer;
 let timer;
 let loading = false;
@@ -11,9 +19,9 @@ let starting = false;
 let lostFocus = false;
 let baseline = 0;
 let elapsed = 0;
-const voidKey = day => `opentrivia.daily.void.${day}`;
-function locallyVoided(day) {
-  try { return localStorage.getItem(voidKey(day)) === '1'; } catch { return false; }
+const voidKey = day => `opentrivia.daily.void.${snapshot?.identity || "browser"}.${day}`;
+function locallyVoided(day, identity = snapshot?.identity) {
+  try { return localStorage.getItem(`opentrivia.daily.void.${identity || "browser"}.${day}`) === '1'; } catch { return false; }
 }
 function seconds(ms) { return `${(ms / 1000).toFixed(2)} s`; }
 function board(rows, season = false) {
@@ -53,7 +61,8 @@ function render() {
   else $('#daily-image').removeAttribute('src');
   $('#daily-answer-form').hidden = !data.run || Boolean(data.result);
   $('#daily-identity').hidden = !revealed;
-  $('#daily-identity').textContent = data.player ? `Playing as ${data.player.name}. Your progress is saved in this browser.` : '';
+  $('#daily-identity').textContent = data.player ? `Playing as ${data.player.name}. ${data.account ? 'Your results are saved to your account across devices.' : 'Your results are stored online and linked to this browser. Sign in to keep them across devices.'}` : '';
+  $('#daily-name').readOnly = Boolean(data.account);
   if (data.player && !$('#daily-name').value) $('#daily-name').value = data.player.name;
   clearInterval(timer);
   $('#daily-timer').hidden = !data.run || Boolean(data.result);
@@ -87,12 +96,13 @@ function render() {
   }, Math.max(1000, Date.parse(data.rolls_over_at) - Date.parse(data.server_time) + 100));
 }
 function accept(next) {
+  if (snapshot?.identity !== next.identity) snapshot = null;
   const resumed = next.run && !next.result && (!snapshot?.run || snapshot.day !== next.day);
   if (snapshot?.day !== next.day) {
     $('#daily-answer').value = '';
     $('#daily-name').value = '';
   }
-  if (next.run && (locallyVoided(next.day) || snapshot?.day === next.day && snapshot.run?.voided)) next.run.voided = true;
+  if (next.run && (locallyVoided(next.day, next.identity) || snapshot?.day === next.day && snapshot.run?.voided)) next.run.voided = true;
   snapshot = next;
   elapsed = next.run ? Math.max(0, Date.parse(next.server_time) - next.run.started_at) : 0;
   baseline = performance.now();
@@ -106,8 +116,10 @@ export async function loadDaily() {
   $('#daily-refresh').disabled = true;
   $('#daily-answer-form button').disabled = true;
   $('#daily-error').textContent = '';
-  try { accept(await api('/api/daily')); }
+  const version = identityVersion;
+  try { const next = await api('/api/daily'); if (version === identityVersion) accept(next); }
   catch (error) {
+    if (version !== identityVersion) return;
     if (!snapshot) {
       $('#daily-status').hidden = false;
       $('#daily-status').textContent = 'Daily trivia is currently unavailable.';
@@ -121,6 +133,7 @@ export async function loadDaily() {
     loading = false;
     $('#daily-refresh').disabled = false;
     $('#daily-answer-form button').disabled = false;
+    if (version !== identityVersion && state.currentView === 'daily') loadDaily();
   }
 }
 export function initDaily() {
@@ -134,11 +147,13 @@ export function initDaily() {
   $('#daily-play').addEventListener('click', async () => {
     if (!snapshot || starting || loading || snapshot.run || snapshot.result) return;
     starting = true;
+    const version = identityVersion;
     lostFocus = false;
     $('#daily-play').disabled = true;
     $('#daily-error').textContent = '';
     try {
       const next = await api('/api/daily/start', { method: 'POST', body: JSON.stringify({ day: snapshot.day }) });
+      if (version !== identityVersion) return;
       // This is a fresh Play response, not a resumed page.
       snapshot = next;
       elapsed = Math.max(0, Date.parse(next.server_time) - next.run.started_at);
@@ -147,12 +162,13 @@ export function initDaily() {
       render();
       $('#daily-answer').focus();
     } catch (error) { $('#daily-error').textContent = error.message; }
-    finally { starting = false; $('#daily-play').disabled = false; }
+    finally { starting = false; $('#daily-play').disabled = false; if (version !== identityVersion && state.currentView === 'daily') loadDaily(); }
   });
   $('#daily-answer-form').addEventListener('submit', async event => {
     event.preventDefault();
     if (!snapshot?.run || submitting || loading) return;
     submitting = true;
+    const version = identityVersion;
     const button = event.currentTarget.querySelector('button');
     button.disabled = true;
     $('#daily-error').textContent = '';
@@ -161,6 +177,7 @@ export function initDaily() {
         day: snapshot.day, answer: $('#daily-answer').value, name: $('#daily-name').value,
         time_voided: snapshot.run.voided || locallyVoided(snapshot.day),
       }) });
+      if (version !== identityVersion) return;
       snapshot.result = response.result;
       if (snapshot.run.voided || locallyVoided(snapshot.day)) snapshot.result.completion_ms = null;
       render();
@@ -173,6 +190,6 @@ export function initDaily() {
         await loadDaily();
       }
       $('#daily-error').textContent = error.message;
-    } finally { submitting = false; button.disabled = false; }
+    } finally { submitting = false; button.disabled = false; if (version !== identityVersion && state.currentView === 'daily') loadDaily(); }
   });
 }

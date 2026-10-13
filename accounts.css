@@ -1,0 +1,23 @@
+.view-actions { display: flex; justify-content: flex-end; gap: 12px; margin-bottom: 16px; }
+.account-dialog { width: min(480px, calc(100vw - 32px)); }
+.account-dialog form { display: grid; gap: 10px; }
+.account-dialog input, .account-dialog select { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #a4bcc8; border-radius: 8px; font: inherit; color: #173e50; background: white; }
+.account-dialog p, .cloud-game p { font-size: .9rem; color: #375967; line-height: 1.5; }
+.account-error { color: #a52b20; }
+.account-error:empty { display: none; }
+.account-games-panel { margin: 24px 0 32px; border: 1px solid #a5c6d5; background: #f5fbff; border-radius: 14px; padding: 20px; }
+.account-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.cloud-games-list { display: grid; gap: 12px; }
+.cloud-game { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; border-radius: 10px; background: white; border: 1px solid #c3d5de; }
+.cloud-game h3 { margin: 0; overflow-wrap: anywhere; }
+.cloud-game p { margin: 6px 0 0; }
+.cloud-game button { flex-shrink: 0; }
+.cloud-conflict { padding: 16px; background: #fff4d4; border: 1px solid #b18b28; border-radius: 10px; margin-bottom: 16px; }
+@media (max-width: 600px) { .cloud-game { align-items: flex-start; flex-direction: column; } .account-games-panel { padding: 14px; } }
+.account-games-panel > .library-heading { margin-top: 0; gap: 16px; }
+.account-dialog { max-height: calc(100dvh - 32px); overflow-y: auto; }
+@media (max-width: 600px) {
+  .account-games-panel > .library-heading { flex-direction: column; align-items: stretch; }
+  .account-games-panel .account-actions { justify-content: flex-start; }
+  .account-games-panel .account-actions .button { flex: 0 0 auto; }
+}

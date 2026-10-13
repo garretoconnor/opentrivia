@@ -42,6 +42,14 @@ export async function handleApi(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
   try {
+    if (path === "/api/auth" || path.startsWith("/api/auth/")) {
+      const { handleAuth } = await import("./better-auth-server.mjs");
+      return await handleAuth(request, env);
+    }
+    if (path === "/api/account" || path.startsWith("/api/account/")) {
+      const { handleAccounts, handleAccountGames } = await import("./accounts.mjs");
+      return path.startsWith("/api/account/games") ? await handleAccountGames(request, env) : await handleAccounts(request, env);
+    }
     if (path === "/api/admin" || path.startsWith("/api/admin/")) return await handleAdmin(request, env);
     if (path === "/api/daily" || path.startsWith("/api/daily/")) return await handleDaily(request, env);
     if (path === "/api/games" && request.method === "GET") {

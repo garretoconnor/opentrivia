@@ -1,8 +1,9 @@
-import { editStudioClue } from "./studio.js?v=0.6.0";
-import { difficultySymbol, normalizeGame } from "../core.mjs?v=0.6.0";
-import { allowsLocalFallback, api } from "./data.js?v=0.6.0";
-import { $, elements, escapeHtml, switchView, toast } from "./render.js?v=0.6.0";
-import { localLibrary, saveGame, saveLocalLibrary, state, voterId } from "./state.js?v=0.6.0";
+import { publishCloudGame } from './accounts.js?v=0.9.1';
+import { editStudioClue } from "./studio.js?v=0.9.1";
+import { difficultySymbol, normalizeGame } from "../core.mjs?v=0.9.1";
+import { allowsLocalFallback, api } from "./data.js?v=0.9.1";
+import { $, elements, escapeHtml, switchView, toast } from "./render.js?v=0.9.1";
+import { localLibrary, saveGame, saveLocalLibrary, state, voterId } from "./state.js?v=0.9.1";
 
 let showSetup = () => {};
 let hostPublishedGame = () => {};
@@ -45,7 +46,7 @@ export async function loadLibrary() {
   try {
     const result = await api("/api/games");
     renderLibrary(result.games);
-    elements.libraryStatus.textContent = `${result.games.length} public game${result.games.length === 1 ? "" : "s"}, powered by D1.`;
+    elements.libraryStatus.textContent = `${result.games.length} public game${result.games.length === 1 ? "" : "s"}.`;
   } catch {
     const games = localLibrary().map(summarizeLocal);
     renderLibrary(games);
@@ -122,10 +123,10 @@ async function publishGame() {
   if (!saveGame()) throw new Error("Save failed. Check device storage before publishing.");
   const clean = normalizeGame({ ...state.game, size: state.game.boards.length });
   try {
-    const result = await api("/api/games", { method: "POST", body: JSON.stringify({ game: clean }) });
+    const result = state.account ? await publishCloudGame() : await api("/api/games", { method: "POST", body: JSON.stringify({ game: clean }) });
     toast(`“${result.game.title}” is now public.`);
   } catch (error) {
-    if (!allowsLocalFallback(error)) {
+    if (state.account || !allowsLocalFallback(error)) {
       $("#publish-error").textContent = error.message;
       return;
     }

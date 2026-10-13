@@ -73,3 +73,90 @@ CREATE TABLE daily_attempts (
 );
 CREATE INDEX daily_challenges_season ON daily_challenges(season_id, day);
 CREATE INDEX daily_attempts_player ON daily_attempts(player_id, day);
+
+-- Historical attempts remain unranked because they have no measured time.
+ALTER TABLE daily_attempts ADD COLUMN completion_ms INTEGER CHECK(completion_ms >= 0);
+CREATE TABLE daily_runs (
+  day TEXT NOT NULL REFERENCES daily_challenges(day),
+  player_id TEXT NOT NULL REFERENCES daily_players(id),
+  started_at INTEGER NOT NULL,
+  voided INTEGER NOT NULL DEFAULT 0 CHECK(voided IN (0, 1)),
+  PRIMARY KEY(day, player_id)
+);
+
+CREATE TABLE accounts (
+  id TEXT PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE CHECK(length(username) BETWEEN 3 AND 30),
+  name TEXT NOT NULL CHECK(length(trim(name)) BETWEEN 1 AND 30),
+  password_hash TEXT NOT NULL,
+  recovery_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE account_sessions (
+  token_hash TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  expires_at INTEGER NOT NULL
+);
+CREATE INDEX account_sessions_account ON account_sessions(account_id);
+CREATE TABLE auth_limits (
+  key TEXT PRIMARY KEY,
+  count INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+ALTER TABLE daily_players ADD COLUMN account_id TEXT REFERENCES accounts(id);
+CREATE UNIQUE INDEX daily_players_account ON daily_players(account_id) WHERE account_id IS NOT NULL;
+CREATE TABLE daily_claims (
+  player_id TEXT PRIMARY KEY REFERENCES daily_players(id),
+  account_id TEXT NOT NULL REFERENCES accounts(id)
+);
+CREATE TABLE account_games (
+  id TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  game_json TEXT NOT NULL,
+  revision INTEGER NOT NULL DEFAULT 1,
+  published_id TEXT REFERENCES games(id) ON DELETE SET NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX account_games_owner ON account_games(account_id, updated_at);
+ALTER TABLE games ADD COLUMN account_id TEXT REFERENCES accounts(id);
+
+-- Replace the credential/session implementation while preserving every user ID
+-- and all existing application foreign keys. Email stays nullable only for
+-- legacy users awaiting verified-email enrollment; Better Auth requires it
+-- on every new signup. Legacy usernames remain reserved.
+CREATE TABLE legacy_auth_credentials (
+  account_id TEXT PRIMARY KEY,
+  password_hash TEXT NOT NULL,
+  recovery_hash TEXT NOT NULL
+);
+INSERT INTO legacy_auth_credentials SELECT id, password_hash, recovery_hash FROM accounts;
+DROP TABLE account_sessions;
+DROP TABLE auth_limits;
+ALTER TABLE accounts RENAME TO auth_users;
+ALTER TABLE auth_users ADD COLUMN email TEXT;
+ALTER TABLE auth_users ADD COLUMN emailVerified INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE auth_users ADD COLUMN image TEXT;
+ALTER TABLE auth_users ADD COLUMN createdAt DATE NOT NULL DEFAULT 0;
+ALTER TABLE auth_users ADD COLUMN updatedAt DATE NOT NULL DEFAULT 0;
+ALTER TABLE auth_users ADD COLUMN displayUsername TEXT;
+UPDATE auth_users SET createdAt = CAST(strftime('%s', created_at) AS INTEGER) * 1000,
+  updatedAt = CAST(strftime('%s', created_at) AS INTEGER) * 1000, displayUsername = username;
+ALTER TABLE auth_users DROP COLUMN password_hash;
+ALTER TABLE auth_users DROP COLUMN recovery_hash;
+ALTER TABLE auth_users DROP COLUMN created_at;
+CREATE UNIQUE INDEX auth_users_email_unique ON auth_users(email);
+
+create table "auth_sessions" ("id" text not null primary key, "expiresAt" date not null, "token" text not null unique, "createdAt" date not null, "updatedAt" date not null, "ipAddress" text, "userAgent" text, "userId" text not null references "auth_users" ("id") on delete cascade);
+
+create table "auth_credentials" ("id" text not null primary key, "accountId" text not null, "providerId" text not null, "userId" text not null references "auth_users" ("id") on delete cascade, "accessToken" text, "refreshToken" text, "idToken" text, "accessTokenExpiresAt" date, "refreshTokenExpiresAt" date, "scope" text, "password" text, "createdAt" date not null, "updatedAt" date not null);
+
+create table "auth_verifications" ("id" text not null primary key, "identifier" text not null, "value" text not null, "expiresAt" date not null, "createdAt" date not null, "updatedAt" date not null);
+
+create table "auth_rate_limits" ("id" text not null primary key, "key" text not null unique, "count" integer not null, "lastRequest" bigint not null);
+
+create index "auth_sessions_userId_idx" on "auth_sessions" ("userId");
+
+create index "auth_credentials_userId_idx" on "auth_credentials" ("userId");
+
+create index "auth_verifications_identifier_idx" on "auth_verifications" ("identifier");

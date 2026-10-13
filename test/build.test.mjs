@@ -10,7 +10,7 @@ test("deployed Worker serves the entire browser module graph", async () => {
   const root = fileURLToPath(new URL("../", import.meta.url));
   const directory = await mkdtemp(join(tmpdir(), "opentrivia-build-"));
   try {
-    for (const file of ["package.json", "scripts", "modules", "index.html", "admin.html", "admin.css", "admin.js", "admin.mjs", "ok-logo.svg", "favicon.svg", "styles.css", "studio.css", "app.js", "core.mjs", "api.mjs", "daily.mjs"]) {
+    for (const file of ["package.json", "scripts", "modules", "index.html", "admin.html", "admin.css", "admin.js", "admin.mjs", "ok-logo.svg", "favicon.svg", "styles.css", "studio.css", "app.js", "core.mjs", "api.mjs", "daily.mjs", "auth.mjs", "accounts.mjs", "accounts.css", "better-auth-server.mjs"]) {
       await cp(join(root, file), join(directory, file), { recursive: true });
     }
     execFileSync(process.execPath, ["scripts/build.mjs"], { cwd: directory });

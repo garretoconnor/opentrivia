@@ -11,6 +11,7 @@ class D1 {
     this.db.exec(readFileSync(new URL('../migrations/0002_daily_trivia.sql', import.meta.url), 'utf8'));
     this.db.exec(readFileSync(new URL('../migrations/0003_consistent_question_content.sql', import.meta.url), 'utf8'));
     this.db.exec(readFileSync(new URL('../migrations/0004_daily_timing.sql', import.meta.url), 'utf8'));
+    this.db.exec(readFileSync(new URL('../migrations/0005_accounts.sql', import.meta.url), 'utf8'));
   }
   async batch(statements) {
     this.db.exec('BEGIN');

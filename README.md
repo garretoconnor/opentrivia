@@ -1,6 +1,6 @@
 # OpenTrivia
 
-OpenTrivia is a dependency-free browser toolkit for creating, publishing, discovering, and hosting custom trivia games with friends.
+OpenTrivia is a browser toolkit for creating, publishing, discovering, and hosting custom trivia games with friends.
 
 In hosted games, players join from their own devices, buzz on revealed clues, submit timed answers, and receive server-authoritative scores. The room awards the first buzz, shows a 30-second countdown plus five seconds of red overtime, and reopens missed clues for players who have not attempted them yet.
 
@@ -59,7 +59,7 @@ Boards and complete games use the current [data model](docs/data-model.md). Clue
 
 The **Daily trivia** tab serves one shared question per trivia day, with daily and seasonal completion-time leaderboards. A trivia day rolls over at **02:00 EST / 07:00 UTC year-round** (03:00 on clocks observing Eastern daylight time). Selection happens on the first request after rollover; no cron job is required, and inactive days do not consume questions. Open tabs refresh at rollover and when returning to the tab; leaderboards can also be refreshed manually.
 
-Before Play, only the topic is revealed. Play creates a server-timed run and reveals the clue and answer field. Players can enter a public display name with their answer. A server-issued, HttpOnly cookie remembers their identity for one year; each browser identity can submit once per day. Only correct answers with valid completion times rank. The daily board ranks fastest first; the season board ranks by average time across valid correct completions and shows the completion count. Equal times share a rank. Switching tabs or windows, or reloading an unfinished run, permanently voids that day’s time; the player can still answer. Start times and voids persist on the server, and repeat Play requests cannot restart the clock. Browser focus events provide casual enforcement, not protection against a modified client. The top 100 players are displayed. This is casual browser-based identity, not account authentication: clearing cookies or using another browser creates a new player, and progress does not sync across devices.
+Before Play, only the topic is revealed. Play creates a server-timed run and reveals the clue and answer field. Players can enter a public display name with their answer. A server-issued, HttpOnly cookie remembers their identity for one year; each browser identity can submit once per day. Only correct answers with valid completion times rank. The daily board ranks fastest first; the season board ranks by average time across valid correct completions and shows the completion count. Equal times share a rank. Switching tabs or windows, or reloading an unfinished run, permanently voids that day’s time; the player can still answer. Start times and voids persist on the server, and repeat Play requests cannot restart the clock. Browser focus events provide casual enforcement, not protection against a modified client. The top 100 players are displayed. Guest play uses casual browser-based identity: clearing cookies or using another browser creates a new guest. Signed-in players use their cloud account across devices; see Accounts and private cloud games below.
 
 ### Automatic seasons and question writing
 
@@ -134,3 +134,47 @@ npm run dev:worker
 Use **Settings → Contains 18+ content** to label a game in the public library and publication review. **Row points** sets game-wide values for every standard round, with 100-, 200-, and 500-point increment presets or custom positive whole numbers. Boss rounds keep wager scoring.
 
 Drag a clue's handle within its topic to reorder it, or focus the handle and use the up/down arrow keys. Reordering supports Undo. Points follow the destination row, and publishing/exporting derives clue values from the game's `row_values` array. The `adult_content` boolean and row values persist with the game. Legacy imports adopt the first standard topic's value for each row and default to all ages.
+
+## Accounts and private cloud games
+
+Accounts use **Better Auth 1.7.7** on the existing Worker/D1 database. Users create an account with a real email address, username, public display name, and password of 15–128 characters. Email verification is required before sign-in. Sign in with either username or email. **Forgot password** sends a one-use reset link and revokes all previous sessions after a successful reset. The account dialog also supports resending verification emails. Custom credential/session routes and recovery codes have been retired; `/api/account` remains a read-only application profile endpoint.
+
+**My Games** contains private drafts and games you have published. **New game** creates a private cloud draft. Studio edits autosave after a short delay, with explicit saving, synced, pending, and conflict states. Device backups are scoped to the account; guest drafts are kept separately. Failed saves retain pending edits and can be retried. Revision checks prevent one device from silently replacing another device's changes; on conflict, save your edits as a new game or explicitly open the cloud version. Publishing requires all clues and responses and a successful cloud save. Republishing updates the existing public copy; later draft edits remain private until published again.
+
+**Import local games** copies this browser's Studio draft and local preview library into private cloud drafts. Imports keep the originals and are idempotent for identical content. The account dialog offers **Claim this browser's guest daily history**. This transfers that guest history exactly once. Existing account answers win on overlapping days; overlapping times are voided, while non-overlapping answers retain server timing. A claimed guest cookie no longer exposes transferred results. Account identity, not browser identity, controls signed-in daily play. Guest play remains available.
+
+### Cloudflare Email Service and auth configuration
+
+The Worker declares `AUTH_EMAIL`, a native Cloudflare Email Service send binding restricted to sender **bot@okener.com**, and `AUTH_EMAIL_FROM=bot@okener.com`. Verification/reset emails use this binding directly; there is no external email API key or provider. The domain owner reports that **okener.com is onboarded to Email Service**; production delivery still needs verification after deployment.
+
+Before production rollout:
+
+1. Confirm that outbound Email Service domain verification is complete and sending from `bot@okener.com` is permitted. This is Email Service outbound sending, rather than only inbound Email Routing. See [sending setup](https://developers.cloudflare.com/email-service/get-started/send-emails/) and [domain configuration](https://developers.cloudflare.com/email-service/configuration/domains/).
+2. Set a high-entropy `BETTER_AUTH_SECRET` Worker secret (at least 32 characters; generate at least 32 random bytes). Keep it out of source, GitHub logs, and browser assets. `cloudflare.config.ts` sets `BETTER_AUTH_URL=https://trivia.okener.com`; attach that custom domain to the `opentrivia` Worker and use the same value in any Dashboard configuration. The URL must be the exact public HTTPS application origin without a path. The existing prebuilt deploy preserves Dashboard variables and Worker secrets. Never use a deployment/API token as this auth secret.
+3. Apply migrations through `0006_better_auth.sql`, then deploy the tested Worker. Review the legacy-account procedure below before applying to a populated custom-auth database. Existing custom sessions are intentionally invalidated. No migration runs from an HTTP request.
+4. After domain setup and deployment, test verification/reset delivery with an owner-approved test mailbox. Local simulation proves integration logic, not inbox delivery or domain entitlement. Do not enable remote email bindings for routine tests.
+
+Better Auth owns credentials, session cookies, and verification/reset tokens. Cookies are HttpOnly and Secure on HTTPS; sessions last up to 30 days. Cookie caching is disabled, and password reset revokes sessions. Its database token representation differs from the previous custom hashed-token implementation. Auth endpoints use persistent database rate limits with a trusted Cloudflare IP header, plus an atomic per-identifier sign-in limit shared across IPs. Application ownership and daily scoring checks remain separate. Auth responses are `no-store`, and auth POSTs require same-origin JSON requests.
+
+### Local account development
+
+The static `npm run dev` preview remains guest-only. For accounts, use `npm run dev:worker` and apply migrations to local D1. Store local configuration in git-ignored `.dev.vars` (keep any existing values):
+
+```text
+BETTER_AUTH_SECRET=<generate a unique random development secret>
+BETTER_AUTH_URL=http://localhost:8787
+```
+
+`AUTH_EMAIL_FROM` and the local send binding come from the Worker config. Default local email bindings simulate delivery; Wrangler prints the path of each generated message under its temporary `files/email-text/` directory. Open the verification/reset link from that local text file. Nothing is sent to the mailbox, and domain onboarding is unnecessary for local simulation. See [Cloudflare's local email documentation](https://developers.cloudflare.com/email-service/local-development/sending/). `AUTH_EMAIL` is a native runtime binding; tests replace it with an in-memory mail sink, never a public HTTP endpoint that exposes tokens.
+
+### Existing custom-auth accounts
+
+Migration 0006 renames `accounts` to `auth_users`, preserving IDs and automatically retargeting application foreign keys. Games, plays, votes, daily players/results, guest claims, and private drafts remain intact. Legacy passwords/recovery hashes are archived in the server-only `legacy_auth_credentials` table; no HTTP route accepts them. Their usernames remain reserved. Existing users have a null email until enrollment, so there is no fabricated email or automatic reassignment of old data.
+
+If custom-auth users exist, independently establish ownership of each old account before assigning its real email. Generate an enrollment SQL file for review:
+
+```sh
+node scripts/enroll-legacy-account.mjs USER_UUID owner@example.com /tmp/enroll-user.sql
+```
+
+The script only writes a file and never contacts a database or sends mail. Apply the reviewed SQL through the normal D1 admin process after ownership is verified. The owner then uses **Forgot password** and **Resend verification email** to enroll through Better Auth; the same user ID retains its games and scores. Existing custom password hashes are not interpreted as Better Auth hashes. Keep the archive/backups access-controlled until the migration retention decision is made. Do not rewrite previously applied migrations.
