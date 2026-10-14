@@ -19,9 +19,9 @@ const storage = new Map(); let storageFails = false;
 globalThis.localStorage = { getItem: key => storage.get(key) ?? null, setItem(key, value) { if (storageFails) throw new Error('Full'); storage.set(key, value); } };
 globalThis.document = Object.assign(new Element(), { querySelector: get, querySelectorAll: () => [], getElementById: id => get(`#${id}`), createElement: () => new Element(), dispatchEvent() {} });
 globalThis.window = Object.assign(new Element(), { scrollTo() {}, confirm: () => true });
-const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.9.1');
-const { initAccounts, flushCloud } = await import('../modules/accounts.js?v=0.9.1');
-const account = { id: 'alice-id', username: 'alice', name: 'Alice' };
+const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.10.0');
+const { initAccounts, flushCloud } = await import('../modules/accounts.js?v=0.10.0');
+const account = { id: 'alice-id', name: 'Alice' };
 let server, calls, fail, hold, currentAccount;
 async function reset(cached, options = {}) {
   window.location = { origin: 'https://example.test', pathname: '/', search: options.search || '' };
@@ -129,39 +129,39 @@ test('signing out does not replace a game being played', async () => {
 
 test('signup uses Better Auth email endpoints and prompts verification without attaching an unverified account', async () => {
   await reset(undefined, { signedOut: true });
-  get('#account-mode').value = 'signup'; await get('#account-mode').fire('change');
+  await get('#account-signup-link').fire('click');
   assert.equal(get('#account-email').required, true); assert.equal(get('#account-name').required, true);
-  get('#account-username').value = 'alice'; get('#account-email').value = 'alice@example.test';
+  get('#account-email').value = 'alice@example.test';
   get('#account-name').value = 'Alice'; get('#account-password').value = 'test fixture passphrase';
   await get('#account-form').fire('submit');
   const request = calls.find(c => c.path === '/api/auth/sign-up/email');
-  assert.equal(request.body.email, 'alice@example.test'); assert.equal(request.body.callbackURL, 'https://example.test/?auth=verified');
+  assert.equal(request.body.email, 'alice@example.test'); assert.equal('username' in request.body, false); assert.equal(request.body.callbackURL, 'https://example.test/?auth=verified');
   assert.equal(state.account, null); assert.match(get('#account-message').textContent, /verify your account/);
-  assert.equal(get('#account-mode').value, 'login'); assert.equal(get('#account-password').value, '');
+  assert.equal(get('#account-title').textContent, 'Sign in'); assert.equal(get('#account-password').value, '');
 });
 test('login supports email, recovery and resend use email, and auth state attaches only after session resolution', async () => {
   await reset(undefined, { signedOut: true });
-  get('#account-mode').value = 'recover'; await get('#account-mode').fire('change');
-  assert.equal(get('#account-password').required, false); assert.equal(get('#account-username').required, false);
+  await get('#account-recover-link').fire('click');
+  assert.equal(get('#account-password').required, false); assert.equal(get('#account-email').required, true);
   get('#account-email').value = 'alice@example.test'; await get('#account-form').fire('submit');
   assert.equal(calls.find(c => c.path === '/api/auth/request-password-reset').body.redirectTo, 'https://example.test/?auth=reset');
   assert.match(get('#account-message').textContent, /If that email is eligible/);
-  get('#account-mode').value = 'resend'; await get('#account-mode').fire('change'); await get('#account-form').fire('submit');
+  await get('#account-login-link').fire('click'); await get('#account-resend-link').fire('click'); await get('#account-form').fire('submit');
   assert.ok(calls.some(c => c.path === '/api/auth/send-verification-email'));
-  get('#account-mode').value = 'login'; await get('#account-mode').fire('change');
-  get('#account-username').value = 'alice@example.test'; get('#account-password').value = 'test fixture passphrase';
+  await get('#account-login-link').fire('click');
+  get('#account-email').value = 'alice@example.test'; get('#account-password').value = 'test fixture passphrase';
   await get('#account-form').fire('submit');
   assert.ok(calls.some(c => c.path === '/api/auth/sign-in/email')); assert.equal(state.account.id, account.id);
 });
 test('password reset callback scrubs tokens from the URL, validates confirmation and submits to Better Auth', async () => {
   await reset(undefined, { signedOut: true, search: '?auth=reset&token=synthetic-reset-token' });
-  assert.equal(get('#account-mode').value, 'reset'); assert.equal(window.cleanedURL, '/');
+  assert.equal(get('#account-title').textContent, 'Choose a new password'); assert.equal(window.cleanedURL, '/');
   get('#account-password').value = 'new fixture passphrase'; get('#account-confirm').value = 'mismatch';
   await get('#account-form').fire('submit'); assert.match(get('#account-error').textContent, /do not match/);
   assert.equal(calls.some(c => c.path === '/api/auth/reset-password'), false);
   get('#account-confirm').value = 'new fixture passphrase'; await get('#account-form').fire('submit');
   assert.deepEqual(calls.find(c => c.path === '/api/auth/reset-password').body, { token: 'synthetic-reset-token', newPassword: 'new fixture passphrase' });
-  assert.equal(get('#account-mode').value, 'login'); assert.match(get('#account-message').textContent, /Other sessions/);
+  assert.equal(get('#account-title').textContent, 'Sign in'); assert.match(get('#account-message').textContent, /Other sessions/);
 });
 
 test('reset link remains usable when this browser already has a session, then refreshes revoked auth state', async () => {
@@ -169,5 +169,5 @@ test('reset link remains usable when this browser already has a session, then re
   assert.equal(get('#account-signed-out').hidden, false); assert.equal(get('#account-signed-in').hidden, true);
   get('#account-password').value = 'new fixture passphrase'; get('#account-confirm').value = 'new fixture passphrase';
   await get('#account-form').fire('submit');
-  assert.equal(state.account, null); assert.equal(get('#account-mode').value, 'login');
+  assert.equal(state.account, null); assert.equal(get('#account-title').textContent, 'Sign in');
 });

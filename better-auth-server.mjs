@@ -1,5 +1,4 @@
 import { betterAuth } from 'better-auth';
-import { username } from 'better-auth/plugins/username';
 import { createAuthMiddleware, APIError } from 'better-auth/api';
 import { fail, validMutation } from './auth.mjs';
 
@@ -40,16 +39,15 @@ export function getAuth(env) {
     },
     rateLimit: { enabled: true, storage: 'database', modelName: 'auth_rate_limits', window: 60, max: 100,
       customRules: { '/sign-in/*': { window: 900, max: 15 }, '/sign-up/email': { window: 900, max: 10 }, '/request-password-reset': { window: 900, max: 5 }, '/send-verification-email': { window: 900, max: 5 } } },
-    plugins: [username({ minUsernameLength: 3, maxUsernameLength: 30, usernameValidator: value => /^[a-zA-Z0-9_]+$/.test(value) })],
     databaseHooks: { user: { create: { before: async user => {
-      if (!user.username || !user.name?.trim() || user.name.trim().length > 30) throw new APIError('BAD_REQUEST', { message: 'Enter a username and a public display name of 1–30 characters.' });
+      if (!user.name?.trim() || user.name.trim().length > 30) throw new APIError('BAD_REQUEST', { message: 'Enter a public display name of 1–30 characters.' });
       return { data: { ...user, name: user.name.trim() } };
     } }, update: { before: async user => {
       if (user.name !== undefined && (!user.name.trim() || user.name.trim().length > 30)) throw new APIError('BAD_REQUEST', { message: 'Enter a public display name of 1–30 characters.' });
     } } } },
     hooks: { before: createAuthMiddleware(async ctx => {
-      if (['/sign-in/username', '/sign-in/email'].includes(ctx.path)) {
-        const identity = (ctx.body?.username || ctx.body?.email || '').trim().toLowerCase();
+      if (ctx.path === '/sign-in/email') {
+        const identity = (ctx.body?.email || '').trim().toLowerCase();
         if (identity) {
           const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(identity)))].map(n => n.toString(16).padStart(2, '0')).join('');
           const now = Date.now(), key = `identity:${hash}:${Math.floor(now / 900000)}`;

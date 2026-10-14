@@ -12,9 +12,9 @@ import {
   normalizeBoard,
   normalizeGame,
   resizeBoard,
-} from "../core.mjs?v=0.9.1";
-import { $, elements, escapeHtml, answerDetails, fillNumberOptions, toast } from "./render.js?v=0.9.1";
-import { saveGame as persistGame, state } from "./state.js?v=0.9.1";
+} from "../core.mjs?v=0.10.0";
+import { $, elements, escapeHtml, answerDetails, fillNumberOptions, toast } from "./render.js?v=0.10.0";
+import { saveGame as persistGame, state } from "./state.js?v=0.10.0";
 
 let undoState = null;
 let initialClue = "";

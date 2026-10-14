@@ -1,5 +1,5 @@
-import { buzzTimer } from "../core.mjs?v=0.9.1";
-import { state } from "./state.js?v=0.9.1";
+import { buzzTimer } from "../core.mjs?v=0.10.0";
+import { state } from "./state.js?v=0.10.0";
 
 export const $ = (selector) => document.querySelector(selector);
 
