@@ -13,13 +13,13 @@ function setup() {
       return handleApi(new Request(path.startsWith('https:') ? path : `https://example.test/api${path}`, { method,
         headers: { cookie, origin: 'https://example.test', 'cf-connecting-ip': '192.0.2.1', 'content-type': 'application/json', ...headers }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }), env);
     },
-    async signup(username) {
-      const email = `${username}@example.test`;
-      const response = await this.call('/auth/sign-up/email', { username, email, password, name: username, callbackURL: 'https://example.test/?auth=verified' });
+    async signup(name, displayName = name) {
+      const email = `${name}@example.test`;
+      const response = await this.call('/auth/sign-up/email', { email, password, name: displayName, callbackURL: 'https://example.test/?auth=verified' });
       assert.equal(response.status, 200, await response.clone().text());
       const link = mails.at(-1).text.match(/https:\/\/\S+/)[0];
       assert.equal((await this.call(link)).status, 302);
-      const login = await this.call('/auth/sign-in/username', { username, password });
+      const login = await this.call('/auth/sign-in/email', { email, password });
       assert.equal(login.status, 200, await login.clone().text());
       const cookie = login.headers.getSetCookie().map(item => item.split(';')[0]).join('; ');
       const account = (await (await this.call('/account', undefined, cookie)).json()).account;
@@ -32,12 +32,15 @@ function completeGame(name = 'Private fixture') {
   for (const board of game.boards) for (const col of board.columns) for (const clue of col.clues) { clue.clue = 'Question'; clue.answer = 'Answer'; }
   return game;
 }
-test('Better Auth signup requires email verification, supports username/email login, expiry and logout', async () => {
+test('Better Auth signup requires email verification, supports email-only login, expiry and logout', async () => {
   const c = setup();
-  const pending = await c.call('/auth/sign-up/email', { username: 'pending', email: 'pending@example.test', password, name: 'Pending' });
+  const pending = await c.call('/auth/sign-up/email', { email: 'pending@example.test', password, name: 'Pending' });
   assert.equal(pending.status, 200); assert.equal((await pending.json()).token, null);
-  assert.equal((await c.call('/auth/sign-in/username', { username: 'pending', password })).status, 403);
+  assert.equal((await c.call('/auth/sign-in/email', { email: 'pending@example.test', password })).status, 403);
   const ada = await c.signup('ada');
+  assert.equal('username' in ada.account, false);
+  assert.equal((await c.call('/auth/sign-in/username', { username: 'ada', password })).status, 404);
+  assert.equal((await c.call('/auth/is-username-available', { username: 'ada' })).status, 404);
   const stored = c.DB.sqlite.prepare('SELECT password FROM auth_credentials WHERE userId = ?').get(ada.account.id);
   assert.ok(stored.password); assert.equal(stored.password.includes(password), false);
   const login = await c.call('/auth/sign-in/email', { email: ada.email, password });
@@ -53,18 +56,18 @@ test('Better Auth signup requires email verification, supports username/email lo
 });
 test('Better Auth validates credentials, persists throttles, and rejects cross-site mutations', async () => {
   const c = setup();
-  assert.equal((await c.call('/auth/sign-up/email', { username: 'ada', email: 'ada@example.test', password: 'short', name: 'Ada' })).status, 400);
-  assert.equal((await c.call('/auth/sign-up/email', { username: 'ada', email: 'ada@example.test', password, name: 'Ada' }, '', 'POST', { origin: 'https://evil.test' })).status, 403);
-  assert.equal((await c.call('/auth/sign-up/email', { username: 'ada', email: 'ada@example.test', password, name: 'Ada' }, '', 'POST', { 'sec-fetch-site': 'cross-site' })).status, 403);
+  assert.equal((await c.call('/auth/sign-up/email', { email: 'ada@example.test', password: 'short', name: 'Ada' })).status, 400);
+  assert.equal((await c.call('/auth/sign-up/email', { email: 'ada@example.test', password, name: 'Ada' }, '', 'POST', { origin: 'https://evil.test' })).status, 403);
+  assert.equal((await c.call('/auth/sign-up/email', { email: 'ada@example.test', password, name: 'Ada' }, '', 'POST', { 'sec-fetch-site': 'cross-site' })).status, 403);
   const ada = await c.signup('ada');
-  for (const username of ['ada', 'missing']) assert.equal((await c.call('/auth/sign-in/username', { username, password: 'incorrect passphrase' })).status, 401);
+  for (const email of ['ada@example.test', 'missing@example.test']) assert.equal((await c.call('/auth/sign-in/email', { email, password: 'incorrect passphrase' })).status, 401);
   c.DB.sqlite.exec('UPDATE auth_rate_limits SET count = 100');
-  assert.equal((await c.call('/auth/sign-in/username', { username: 'ada', password })).status, 429);
+  assert.equal((await c.call('/auth/sign-in/email', { email: 'ada@example.test', password })).status, 429);
   assert.equal((await (await c.call('/account', undefined, ada.cookie)).json()).account.id, ada.account.id);
 });
 test('Better Auth email reset tokens are one-use and revoke all old sessions', async () => {
   const c = setup(), ada = await c.signup('ada');
-  const login = await c.call('/auth/sign-in/username', { username: 'ada', password });
+  const login = await c.call('/auth/sign-in/email', { email: 'ada@example.test', password });
   const second = login.headers.getSetCookie().map(item => item.split(';')[0]).join('; ');
   const requested = await c.call('/auth/request-password-reset', { email: ada.email, redirectTo: 'https://example.test/?auth=reset' });
   assert.equal(requested.status, 200);
@@ -75,8 +78,8 @@ test('Better Auth email reset tokens are one-use and revoke all old sessions', a
   assert.equal((await c.call('/auth/reset-password', body)).status, 200);
   assert.equal((await c.call('/auth/reset-password', body)).status, 400);
   for (const cookie of [ada.cookie, second]) assert.equal((await (await c.call('/account', undefined, cookie)).json()).account, null);
-  assert.equal((await c.call('/auth/sign-in/username', { username: 'ada', password })).status, 401);
-  assert.equal((await c.call('/auth/sign-in/username', { username: 'ada', password: body.newPassword })).status, 200);
+  assert.equal((await c.call('/auth/sign-in/email', { email: 'ada@example.test', password })).status, 401);
+  assert.equal((await c.call('/auth/sign-in/email', { email: 'ada@example.test', password: body.newPassword })).status, 200);
 });
 test('private games persist across sessions, enforce ownership and detect concurrent edits', async () => {
   const c = setup(), ada = await c.signup('ada'), bo = await c.signup('bob');
@@ -92,7 +95,7 @@ test('private games persist across sessions, enforce ownership and detect concur
   game.name = 'Updated';
   assert.equal((await c.call(`/account/games/${id}`, { game, revision: 1 }, ada.cookie, 'PUT')).status, 200);
   assert.equal((await c.call(`/account/games/${id}`, { game, revision: 1 }, ada.cookie, 'PUT')).status, 409);
-  const login = await c.call('/auth/sign-in/username', { username: 'ada', password });
+  const login = await c.call('/auth/sign-in/email', { email: 'ada@example.test', password });
   const second = login.headers.get('set-cookie').split(';')[0];
   const opened = await (await c.call(`/account/games/${id}`, undefined, second)).json();
   assert.equal(opened.game.data.name, 'Updated'); assert.equal(opened.game.revision, 2);
@@ -132,7 +135,7 @@ test('daily results follow accounts across devices; forged guest IDs cannot acce
   await c.call('/daily/start', { day: initial.day }, ada.cookie);
   const answer = await c.call('/daily/answer', { day: initial.day, answer: 'Answer', name: 'Imposter' }, ada.cookie);
   assert.equal((await answer.json()).result.points, 1);
-  const login = await c.call('/auth/sign-in/username', { username: 'ada', password });
+  const login = await c.call('/auth/sign-in/email', { email: 'ada@example.test', password });
   const cookie = login.headers.get('set-cookie').split(';')[0];
   const next = await (await c.call('/daily', undefined, cookie)).json();
   assert.equal(next.result.points, 1); assert.equal(next.account, true); assert.equal(next.player.name, 'ada');
@@ -171,7 +174,7 @@ test('overlapping account and guest runs keep the account answer and void the me
 
 test('email configuration failures stop signup before creating an account, and mail uses the Cloudflare binding', async () => {
   const c = setup(); delete c.env.AUTH_EMAIL;
-  const response = await c.call('/auth/sign-up/email', { username: 'ada', email: 'ada@example.test', password, name: 'Ada' });
+  const response = await c.call('/auth/sign-up/email', { email: 'ada@example.test', password, name: 'Ada' });
   assert.equal(response.status, 503);
   assert.equal(c.DB.sqlite.prepare('SELECT COUNT(*) AS n FROM auth_users').get().n, 0);
   assert.equal((await c.call('/auth/request-password-reset', { email: 'unknown@example.test' })).status, 503);
@@ -186,7 +189,7 @@ test('sign-in identity throttles span IP addresses and stale tabs cannot sign ou
   assert.equal((await c.call('/auth/sign-out', {}, bob.cookie, 'POST', { 'x-opentrivia-account': ada.account.id })).status, 409);
   assert.equal((await (await c.call('/account', undefined, bob.cookie)).json()).account.id, bob.account.id);
   c.DB.sqlite.exec("UPDATE auth_rate_limits SET count = 15 WHERE key LIKE 'identity:%'");
-  for (const ip of ['192.0.2.22', '192.0.2.23']) assert.equal((await c.call('/auth/sign-in/username', { username: 'ada', password }, '', 'POST', { 'cf-connecting-ip': ip })).status, 429);
+  for (const ip of ['192.0.2.22', '192.0.2.23']) assert.equal((await c.call('/auth/sign-in/email', { email: 'ada@example.test', password }, '', 'POST', { 'cf-connecting-ip': ip })).status, 429);
 });
 test('a shared account session provisions exactly one daily identity under simultaneous requests', async () => {
   const c = setup(), ada = await c.signup('ada');
@@ -194,4 +197,11 @@ test('a shared account session provisions exactly one daily identity under simul
   const responses = await Promise.all(Array.from({ length: 6 }, () => c.call('/account', undefined, ada.cookie)));
   assert.ok(responses.every(r => r.status === 200));
   assert.equal(c.DB.sqlite.prepare('SELECT COUNT(*) AS n FROM daily_players WHERE account_id = ?').get(ada.account.id).n, 1);
+});
+
+test('display names are public labels and can be shared by different email accounts', async () => {
+  const c = setup(), first = await c.signup('first', 'Shared Name'), second = await c.signup('second', 'Shared Name');
+  assert.notEqual(first.account.id, second.account.id);
+  assert.equal(first.account.name, 'Shared Name'); assert.equal(second.account.name, 'Shared Name');
+  assert.deepEqual(Object.keys(first.account).sort(), ['id', 'name']);
 });

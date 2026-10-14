@@ -1,7 +1,7 @@
-import { createGame, normalizeGame } from '../core.mjs?v=0.9.1';
-import { api } from './data.js?v=0.9.1';
-import { $, escapeHtml, switchView, toast } from './render.js?v=0.9.1';
-import { configurePersistence, loadGuestGame, localLibrary, state, STORAGE_KEY } from './state.js?v=0.9.1';
+import { createGame, normalizeGame } from '../core.mjs?v=0.10.0';
+import { api } from './data.js?v=0.10.0';
+import { $, escapeHtml, switchView, toast } from './render.js?v=0.10.0';
+import { configurePersistence, loadGuestGame, localLibrary, state, STORAGE_KEY } from './state.js?v=0.10.0';
 
 let context = null;
 let debounce;
@@ -104,7 +104,7 @@ async function attachAccount(account) {
   $('#account-button').textContent = account ? `Account: ${account.name}` : 'Sign in';
   $('#account-signed-out').hidden = Boolean(account);
   $('#account-signed-in').hidden = !account;
-  $('#account-label').textContent = account ? `${account.name} (@${account.username})` : '';
+  $('#account-label').textContent = account ? account.name : '';
   $('#my-games-panel').hidden = !account;
   $('#studio-storage-help').textContent = account ? 'Changes save automatically to your account. Drafts stay private until you publish.' : 'Changes save automatically on this device. Sign in to save games to your account.';
   $('#cloud-error').textContent = '';
@@ -175,36 +175,60 @@ export async function initAccounts(dependencies) {
   renderStudio = dependencies.renderStudio; changed = dependencies.changed;
   configurePersistence(persist);
   $('#studio-view').inert = true;
-  $('#account-button').addEventListener('click', () => { $('#account-error').textContent = ''; $('#account-dialog').showModal(); });
+  $('#account-button').addEventListener('click', () => {
+    if (!state.account && !resetToken) setMode('login');
+    $('#account-title').textContent = state.account && !resetToken ? 'Your account' : $('#account-title').textContent;
+    $('#account-error').textContent = ''; $('#account-dialog').showModal();
+    if (!state.account && !resetToken) $('#account-email').focus?.();
+  });
   $('#account-close').addEventListener('click', () => $('#account-dialog').close());
-  let resetToken = '';
+  let resetToken = '', accountMode = 'login';
   const appOrigin = () => window.location?.origin || '';
   function setMode(mode) {
-    $('#account-mode').value = mode;
+    accountMode = mode;
     const signup = mode === 'signup', login = mode === 'login', resetting = mode === 'reset';
-    $('#account-username-field').hidden = !signup && !login;
-    $('#account-username').required = signup || login;
-    $('#account-username-label').textContent = signup ? 'Username' : 'Username or email';
+    $('#account-title').textContent = { login: 'Sign in', signup: 'Create your account', recover: 'Reset your password', resend: 'Verify your email', reset: 'Choose a new password' }[mode];
+    $('#account-intro').textContent = {
+      login: 'Welcome back. Your games and daily results are waiting.',
+      signup: 'Save your games and daily results across devices.',
+      recover: 'Enter your email and we’ll send you a password-reset link.',
+      resend: 'Enter your email and we’ll send you a new verification link.',
+      reset: 'Choose a new password to secure your account.',
+    }[mode];
     $('#account-name-field').hidden = !signup; $('#account-name').required = signup;
-    $('#account-email-field').hidden = login || resetting; $('#account-email').required = !login && !resetting;
+    $('#account-email-field').hidden = resetting; $('#account-email').required = !resetting;
     $('#account-password-field').hidden = !signup && !login && !resetting;
     $('#account-password').required = signup || login || resetting;
     $('#account-password').minLength = login ? 1 : 15;
     $('#account-password').autocomplete = login ? 'current-password' : 'new-password';
+    $('#account-password-help').hidden = login;
+    $('#account-forgot').hidden = !login;
     $('#account-confirm-field').hidden = !resetting; $('#account-confirm').required = resetting;
-    $('#account-submit').textContent = { login: 'Sign in', signup: 'Create account', recover: 'Send reset email', resend: 'Resend verification email', reset: 'Set new password' }[mode];
+    $('#account-signup-prompt').hidden = !login;
+    $('#account-login-prompt').hidden = login;
+    $('#account-login-copy').textContent = signup ? 'Already have an account?' : 'Back to';
+    $('#account-resend-prompt').hidden = !login;
+    $('#account-submit').textContent = { login: 'Sign in', signup: 'Create account', recover: 'Send reset link', resend: 'Send verification link', reset: 'Set new password' }[mode];
+    $('#account-password').value = ''; $('#account-confirm').value = '';
     $('#account-error').textContent = ''; $('#account-message').textContent = '';
   }
-  $('#account-mode').addEventListener('change', () => setMode($('#account-mode').value));
+  for (const [id, mode] of [['signup', 'signup'], ['login', 'login'], ['recover', 'recover'], ['resend', 'resend']]) {
+    $(`#account-${id}-link`).addEventListener('click', () => {
+      if (authBusy) return;
+      resetToken = ''; setMode(mode);
+      $('#account-email').focus?.();
+    });
+  }
+  setMode('login');
   $('#account-form').addEventListener('submit', async event => {
     event.preventDefault(); if (authBusy) return; authBusy = true;
     $('#account-submit').disabled = true; $('#account-error').textContent = ''; $('#account-message').textContent = '';
     try {
-      const mode = $('#account-mode').value, password = $('#account-password').value;
-      const email = $('#account-email').value.trim(), identifier = $('#account-username').value.trim();
+      const mode = accountMode, password = $('#account-password').value;
+      const email = $('#account-email').value.trim();
       if (mode === 'signup') {
-        await api('/api/auth/sign-up/email', { method: 'POST', body: JSON.stringify({ username: identifier, email, name: $('#account-name').value.trim(), password, callbackURL: `${appOrigin()}/?auth=verified` }) });
-        setMode('login'); $('#account-message').textContent = 'Check your email to verify your account, then sign in. You can resend the verification email from Account access.';
+        await api('/api/auth/sign-up/email', { method: 'POST', body: JSON.stringify({ email, name: $('#account-name').value.trim(), password, callbackURL: `${appOrigin()}/?auth=verified` }) });
+        setMode('login'); $('#account-message').textContent = 'Check your email to verify your account, then sign in. Use “Resend verification email” if you need another link.';
       } else if (mode === 'recover' || mode === 'resend') {
         await api(`/api/auth/${mode === 'recover' ? 'request-password-reset' : 'send-verification-email'}`, { method: 'POST', body: JSON.stringify({ email, ...(mode === 'recover' ? { redirectTo: `${appOrigin()}/?auth=reset` } : { callbackURL: `${appOrigin()}/?auth=verified` }) }) });
         $('#account-message').textContent = 'If that email is eligible, a link has been sent. Check your inbox.';
@@ -216,11 +240,11 @@ export async function initAccounts(dependencies) {
         const refreshed = await api('/api/account'); await attachAccount(refreshed.account);
         setMode('login'); $('#account-message').textContent = 'Password reset. Sign in with your new password. Other sessions have been signed out.';
       } else {
-        await api(`/api/auth/sign-in/${identifier.includes('@') ? 'email' : 'username'}`, { method: 'POST', body: JSON.stringify({ ...(identifier.includes('@') ? { email: identifier } : { username: identifier }), password }) });
+        await api('/api/auth/sign-in/email', { method: 'POST', body: JSON.stringify({ email, password }) });
         const response = await api('/api/account');
         if (!response.account) throw new Error('Verify your email before signing in.');
         accountReady = true; $('#studio-view').inert = false; await attachAccount(response.account);
-    if (resetToken) { $('#account-signed-out').hidden = false; $('#account-signed-in').hidden = true; } $('#account-dialog').close();
+        $('#account-dialog').close();
       }
       $('#account-password').value = ''; $('#account-confirm').value = '';
     } catch (error) { $('#account-error').textContent = error.message; }

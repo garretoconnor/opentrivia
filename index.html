@@ -9,7 +9,7 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="styles.css?v=0.5.4" />
     <link rel="stylesheet" href="studio.css?v=0.5.3" />
-    <link rel="stylesheet" href="accounts.css?v=0.9.1" />
+    <link rel="stylesheet" href="accounts.css?v=0.10.0" />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -206,17 +206,23 @@
 
     <dialog id="studio-confirm" class="studio-dialog" aria-labelledby="confirmation-message"><form method="dialog"><h2 id="confirmation-message"></h2><div class="dialog-actions"><button class="button quiet" value="cancel" autofocus>Keep editing</button><button class="button primary" id="confirmation-accept" value="accept">Continue</button></div></form></dialog>
     <dialog id="account-dialog" class="studio-dialog account-dialog" aria-labelledby="account-title">
-      <div class="dialog-topline"><h2 id="account-title">Your OpenTrivia account</h2><button id="account-close" class="button quiet" type="button">Close</button></div>
-      <div id="account-signed-out"><p>Keep private games and daily results across devices. You can also keep playing as a guest.</p>
+      <div class="dialog-topline"><h2 id="account-title">Sign in</h2><button id="account-close" class="button quiet" type="button">Close</button></div>
+      <div id="account-signed-out">
+        <p id="account-intro">Welcome back. Your games and daily results are waiting.</p>
         <form id="account-form">
-          <label class="field-label" for="account-mode">Account access</label><select id="account-mode"><option value="login">Sign in</option><option value="signup">Create account</option><option value="recover">Forgot password</option><option value="resend">Resend verification email</option><option value="reset" hidden>Set new password</option></select>
-          <div id="account-username-field"><label id="account-username-label" class="field-label" for="account-username">Username or email</label><input id="account-username" autocomplete="username" maxlength="254" required /></div>
-          <div id="account-email-field" hidden><label class="field-label" for="account-email">Email address</label><input id="account-email" type="email" autocomplete="email" maxlength="254" /><p>Used for verification and password recovery. Your email stays private.</p></div>
-          <div id="account-name-field" hidden><label class="field-label" for="account-name">Public display name</label><input id="account-name" autocomplete="nickname" maxlength="30" /><p>This name appears on daily leaderboards.</p></div>
-          <div id="account-password-field"><label class="field-label" for="account-password">Password</label><input id="account-password" type="password" autocomplete="current-password" minlength="1" maxlength="128" required /><p>New passwords must have at least 15 characters.</p></div>
+          <div id="account-email-field"><label class="field-label" for="account-email">Email address</label><input id="account-email" type="email" autocomplete="email" maxlength="254" required /></div>
+          <div id="account-name-field" hidden><label class="field-label" for="account-name">Display name</label><input id="account-name" autocomplete="nickname" maxlength="30" aria-describedby="account-name-help" /><p id="account-name-help" class="account-help">Shown on leaderboards. Your email stays private.</p></div>
+          <div id="account-password-field">
+            <label class="field-label" for="account-password">Password</label><input id="account-password" type="password" autocomplete="current-password" minlength="1" maxlength="128" required />
+            <p id="account-password-help" class="account-help" hidden>Use at least 15 characters.</p>
+            <div id="account-forgot" class="account-forgot"><button id="account-recover-link" class="account-link" type="button">Forgot password?</button></div>
+          </div>
           <div id="account-confirm-field" hidden><label class="field-label" for="account-confirm">Confirm new password</label><input id="account-confirm" type="password" autocomplete="new-password" minlength="15" maxlength="128" /></div>
           <button id="account-submit" class="button primary" type="submit">Sign in</button>
         </form>
+        <p id="account-signup-prompt" class="account-footer">New to OpenTrivia? <button id="account-signup-link" class="account-link" type="button">Create account</button></p>
+        <p id="account-login-prompt" class="account-footer" hidden><span id="account-login-copy">Already have an account?</span> <button id="account-login-link" class="account-link" type="button">Sign in</button></p>
+        <p id="account-resend-prompt" class="account-footer account-secondary"><button id="account-resend-link" class="account-link" type="button">Resend verification email</button></p>
       </div>
       <div id="account-signed-in" hidden><p id="account-label"></p><p>Your games stay private until you publish. Daily results save to your account automatically.</p><button id="claim-daily" class="button secondary" type="button">Claim this browser’s guest daily history</button><p>If both identities played the same day, your account answer is kept and the overlapping time is voided.</p><button id="account-logout" class="button quiet" type="button">Sign out</button></div>
       <p id="account-message" role="status"></p>
@@ -227,6 +233,6 @@
     <dialog id="card-dialog" class="dialog play-card-dialog"><div id="card-dialog-content"></div></dialog>
     <input id="file-input" type="file" accept="application/json,.json" hidden />
     <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
-    <script type="module" src="app.js?v=0.9.1"></script>
+    <script type="module" src="app.js?v=0.10.0"></script>
   </body>
 </html>

@@ -1,4 +1,4 @@
-import { state } from './state.js?v=0.9.1';
+import { state } from './state.js?v=0.10.0';
 export async function api(path, options = {}) {
   const response = await fetch(path, {
     ...options,

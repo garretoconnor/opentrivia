@@ -9,7 +9,7 @@ export async function resolveAccount(request, env) {
   const user = session.user;
   await env.DB.prepare(`INSERT INTO daily_players (id, name, account_id) VALUES (?, ?, ?)
     ON CONFLICT DO NOTHING`).bind(user.id, user.name, user.id).run();
-  return { id: user.id, username: user.username, name: user.name };
+  return { id: user.id, name: user.name };
 }
 export function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers } });

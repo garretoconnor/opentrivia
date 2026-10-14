@@ -1,7 +1,7 @@
 .view-actions { display: flex; justify-content: flex-end; gap: 12px; margin-bottom: 16px; }
 .account-dialog { width: min(480px, calc(100vw - 32px)); }
-.account-dialog form { display: grid; gap: 10px; }
-.account-dialog input, .account-dialog select { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #a4bcc8; border-radius: 8px; font: inherit; color: #173e50; background: white; }
+.account-dialog form { display: grid; gap: 18px; margin-top: 24px; }
+.account-dialog input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #a4bcc8; border-radius: 8px; font: inherit; color: #173e50; background: white; }
 .account-dialog p, .cloud-game p { font-size: .9rem; color: #375967; line-height: 1.5; }
 .account-error { color: #a52b20; }
 .account-error:empty { display: none; }
@@ -21,3 +21,14 @@
   .account-games-panel .account-actions { justify-content: flex-start; }
   .account-games-panel .account-actions .button { flex: 0 0 auto; }
 }
+
+.account-dialog .field-label { display: block; margin-bottom: 7px; }
+.account-dialog .account-help { margin: 6px 0 0; font-size: .82rem; }
+.account-link { appearance: none; border: 0; padding: 0; background: none; color: #075b9a; font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.account-link:hover { color: #003c70; }
+.account-link:focus-visible { outline: 3px solid #1682c4; outline-offset: 4px; border-radius: 2px; }
+.account-forgot { margin-top: 10px; text-align: right; font-size: .88rem; }
+.account-dialog #account-submit { width: 100%; margin-top: 4px; }
+.account-dialog .account-footer { margin: 20px 0 0; text-align: center; }
+.account-dialog .account-secondary { margin-top: 12px; font-size: .82rem; }
+.account-dialog .account-error { color: #a52b20; }
