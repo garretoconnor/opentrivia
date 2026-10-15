@@ -12,9 +12,9 @@ import {
   normalizeBoard,
   normalizeGame,
   resizeBoard,
-} from "../core.mjs?v=0.10.0";
-import { $, elements, escapeHtml, answerDetails, fillNumberOptions, toast } from "./render.js?v=0.10.0";
-import { saveGame as persistGame, state } from "./state.js?v=0.10.0";
+} from "../core.mjs?v=0.10.1";
+import { $, elements, escapeHtml, fillNumberOptions, toast } from "./render.js?v=0.10.1";
+import { saveGame as persistGame, state } from "./state.js?v=0.10.1";
 
 let undoState = null;
 let initialClue = "";
@@ -66,10 +66,7 @@ export function renderStudio() {
   elements.roundCount.textContent = String(state.game.boards.length);
   elements.deleteBoard.disabled = state.game.boards.length === 1;
   elements.roundKicker.textContent = `Round ${state.selectedBoard + 1} · ${boss ? "Boss" : "Standard"}`;
-  elements.studioTitle.textContent = boss ? "Boss round" : "Write your clues";
-  elements.studioHelp.textContent = boss
-    ? "The topic appears first; wagers are locked before the clue is revealed."
-    : "Select a clue to edit. Drag its handle to reorder within a topic, or focus the handle and use the arrow keys.";
+  $("#round-title").value = board.title || (boss ? "Boss round" : `Round ${state.selectedBoard + 1}`);
   elements.rowCount.closest("label").hidden = boss;
   elements.columnCount.closest("label").hidden = boss;
   if (!boss) {
@@ -90,7 +87,7 @@ function renderBoardList() {
     button.setAttribute("aria-current", index === state.selectedBoard ? "true" : "false");
     const clues = board.columns.flatMap(column => column.clues);
     const completed = clues.filter(clue => clue.clue.trim() && clue.answer.trim()).length;
-    button.innerHTML = `<span class="round-number">${boss ? "✦" : index + 1}</span><span><span class="round-label">${boss ? "Boss round" : `Round ${index + 1}`}</span><span class="round-type">${completed}/${clues.length} complete</span></span>`;
+    button.innerHTML = `<span class="round-number">${boss ? "✦" : index + 1}</span><span><span class="round-label">${escapeHtml(board.title || (boss ? "Boss round" : `Round ${index + 1}`))}</span><span class="round-type">${completed}/${clues.length} complete</span></span>`;
     button.addEventListener("click", () => {
       state.selectedBoard = index;
       renderStudio();
@@ -345,7 +342,13 @@ export function initStudio() {
   fillNumberOptions(elements.columnCount, LIMITS.minColumns, LIMITS.maxColumns);
 
   $("#adult-content").addEventListener("change", () => { state.game.adult_content = $("#adult-content").checked; saveGame(); });
-  $("#row-values-button").addEventListener("click", () => { renderRowValues(); $("#row-values-dialog").showModal(); });
+  $("#round-title").addEventListener("change", () => {
+    const board = state.game.boards[state.selectedBoard];
+    const previous = board.title;
+    board.title = $("#round-title").value.trim();
+    if (!saveGame()) { if (previous === undefined) delete board.title; else board.title = previous; }
+    renderStudio();
+  });
   $("#row-values-preset").addEventListener("change", () => {
     const step = Number($("#row-values-preset").value);
     if (!step) return;
@@ -362,7 +365,6 @@ export function initStudio() {
     values.forEach((value, row) => { state.game.row_values[row] = value; });
     if (!saveGame()) { state.game.row_values = previous; applyRowValues(state.game); $("#row-values-error").textContent = "Could not save. Check device storage and try again."; return; }
     renderStudio();
-    $("#row-values-dialog").close();
     toast("Row points saved for all rounds.");
   });
   elements.gameName.addEventListener("input", () => { state.game.name = elements.gameName.value; saveGame(); });
@@ -440,7 +442,7 @@ export function initStudio() {
   $("#close-clue-button").addEventListener("click", dismissClue);
   elements.clueDialog.addEventListener("cancel", event => { event.preventDefault(); dismissClue(); });
   elements.clueForm.addEventListener("input", () => { $("#clue-save-status").textContent = "Unsaved changes"; });
-  $("#settings-button").addEventListener("click", () => $("#game-settings").showModal());
+  $("#settings-button").addEventListener("click", () => { renderRowValues(); $("#game-settings").showModal(); });
   document.querySelectorAll("[data-close]").forEach(button => button.addEventListener("click", () => document.getElementById(button.dataset.close).close()));
   $("#topic-selector").addEventListener("change", event => { selectedTopic = Number(event.target.value); renderEditorBoard(); });
   $("#undo-button").addEventListener("click", () => {
@@ -449,11 +451,6 @@ export function initStudio() {
     state.selectedBoard = undoState.selected;
     saveGame();
     renderStudio();
-  });
-  $("#preview-button").addEventListener("click", () => {
-    const board = state.game.boards[state.selectedBoard];
-    $("#preview-content").innerHTML = board.columns.map(column => `<section><h3>${escapeHtml(column.topic || "Untitled topic")}</h3>${column.clues.map(clue => `<article class="preview-clue"><span class="clue-points">${clue.value ? `${clue.value} points` : "Boss wager"}</span><p>${escapeHtml(clue.clue || "No clue yet")}</p>${clue.image ? `<img src="${escapeHtml(clue.image)}" alt="Clue image" />` : ""}<details><summary>Reveal response</summary><p>${escapeHtml(clue.answer || "No response yet")}</p>${answerDetails(clue)}</details></article>`).join("")}</section>`).join("");
-    $("#author-preview").showModal();
   });
   $("#import-button").addEventListener("click", () => elements.fileInput.click());
   elements.fileInput.addEventListener("change", () => { if (elements.fileInput.files[0]) importFile(elements.fileInput.files[0]); });

@@ -4,7 +4,7 @@ import { createGame } from '../core.mjs';
 
 // Minimal DOM adapter: exercise the real editor event handlers and persisted data.
 class Element {
-  constructor() { this.value = ''; this.dataset = {}; this.children = []; this.listeners = {}; this.style = { setProperty() {} }; this.classList = { add() {}, remove() {} }; }
+  constructor() { this.value = ''; this.dataset = {}; this.children = []; this.listeners = {}; this.style = { setProperty() {} }; this.classList = { add() {}, remove() {}, toggle() {} }; }
   addEventListener(type, fn, options) { (this.listeners[type] ||= []).push({ fn, once: options?.once }); }
   async fire(type, extra = {}) {
     const handlers = [...(this.listeners[type] || [])];
@@ -29,12 +29,13 @@ class Element {
 }
 const nodes = new Map();
 const get = id => { if (!nodes.has(id)) nodes.set(id, new Element()); return nodes.get(id); };
-globalThis.document = { querySelector: get, getElementById: id => get(`#${id}`), querySelectorAll: () => [], createElement: tag => Object.assign(new Element(), { tagName: tag }), addEventListener() {} };
+globalThis.document = Object.assign(new Element(), { querySelector: get, getElementById: id => get(`#${id}`), querySelectorAll: () => [], createElement: tag => Object.assign(new Element(), { tagName: tag }), dispatchEvent(event) { void this.fire(event.type); } });
+globalThis.window = { scrollTo() {} };
 globalThis.Option = class extends Element { constructor(text, value) { super(); this.textContent = text; this.value = String(value); } };
 const storage = new Map();
 let failSave = false;
 globalThis.localStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => { if (failSave) throw new Error('Quota exceeded'); storage.set(key, value); } };
-const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.10.0');
+const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.10.1');
 const { initStudio, renderStudio, editStudioClue } = await import('../modules/studio.js');
 initStudio();
 function reset() { failSave = false; state.game = createGame(); state.authoredGame = state.game; state.selectedBoard = 0; renderStudio(); saveGame(); }
@@ -122,11 +123,11 @@ test('row presets and custom values save game-wide and age marking persists', as
   reset();
   get('#adult-content').checked = true; await get('#adult-content').fire('change');
   assert.equal(JSON.parse(storage.get(STORAGE_KEY)).adult_content, true);
-  await get('#row-values-button').fire('click');
+  await get('#settings-button').fire('click');
   get('#row-values-preset').value = '100'; await get('#row-values-preset').fire('change');
   await get('#row-values-form').fire('submit');
   assert.equal(clue().value, 100); assert.equal(state.game.row_values[15], 1600);
-  await get('#row-values-button').fire('click');
+  await get('#settings-button').fire('click');
   get('#row-values-fields').querySelectorAll('input')[0].value = '175';
   await get('#row-values-fields').fire('input'); await get('#row-values-form').fire('submit');
   assert.equal(state.game.boards[0].columns[5].clues[0].value, 175);
@@ -136,7 +137,7 @@ test('failed reorder and row point saves restore the previous data', async () =>
   reset(); clue().clue = 'Keep here'; saveGame(); failSave = true;
   await firstHandle().fire('keydown', { key: 'ArrowDown' });
   assert.equal(clue().clue, 'Keep here');
-  await get('#row-values-button').fire('click');
+  await get('#settings-button').fire('click');
   get('#row-values-fields').querySelectorAll('input')[0].value = '999';
   await get('#row-values-form').fire('submit');
   assert.equal(clue().value, 200);
@@ -160,4 +161,53 @@ test('pointer dragging moves only within the original column', async () => {
   await handle.fire('pointerup', { pointerId: 2 });
   assert.equal(state.game.boards[0].columns[0].clues[2].clue, 'Dragged clue');
   assert.equal(state.game.boards[0].columns[0].clues[2].value, 600);
+});
+
+test('round titles persist through normalization and appear in round navigation', async () => {
+  reset();
+  get('#round-title').value = 'Science & Nature';
+  await get('#round-title').fire('change');
+  assert.equal(state.game.boards[0].title, 'Science & Nature');
+  assert.match(get('#board-list').children[0].innerHTML, /Science &amp; Nature/);
+  const { normalizeGame } = await import('../core.mjs');
+  assert.equal(normalizeGame(JSON.parse(storage.get(STORAGE_KEY))).boards[0].title, 'Science & Nature');
+  failSave = true;
+  get('#round-title').value = 'Unsaved title';
+  await get('#round-title').fire('change');
+  assert.equal(state.game.boards[0].title, 'Science & Nature');
+  failSave = false;
+});
+
+test('preview plays the selected round in isolation and restores the editor on exit', async () => {
+  reset();
+  const { initLocalPlay, previewRound } = await import('../modules/local-play.js?v=0.10.1');
+  const { switchView } = await import('../modules/render.js?v=0.10.1');
+  const { createBossBoard } = await import('../core.mjs');
+  initLocalPlay({});
+  state.game.boards.push(createBossBoard());
+  const authored = state.game, originalSession = { fixture: true };
+  state.session = originalSession;
+  state.publishedGameId = 'existing-game';
+  const saved = storage.get(STORAGE_KEY);
+  previewRound();
+  assert.equal(state.currentView, 'play');
+  assert.equal(state.session.preview, true);
+  assert.notEqual(state.game, authored);
+  assert.equal(state.publishedGameId, null);
+  const grid = get('#play-stage').children[0];
+  assert.equal(grid.className, 'play-board');
+  await grid.children[authored.boards[0].columns.length].fire('click');
+  assert.equal(get('#card-dialog').open, true);
+  assert.match(get('#card-dialog-content').innerHTML, /Reveal correct response/);
+  get('#card-dialog').close();
+  switchView('studio');
+  assert.equal(state.game, authored);
+  assert.equal(state.session, originalSession);
+  assert.equal(state.publishedGameId, 'existing-game');
+  assert.equal(storage.get(STORAGE_KEY), saved);
+  state.selectedBoard = 1;
+  previewRound();
+  assert.equal(state.session.boardIndex, 1);
+  assert.equal(get('#play-stage').children[0].className, 'boss-stage');
+  switchView('studio');
 });

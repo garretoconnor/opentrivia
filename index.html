@@ -7,9 +7,9 @@
     <meta name="description" content="Create, discover, and host custom trivia games with friends." />
     <title>OpenTrivia — Make a game night</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=0.5.4" />
-    <link rel="stylesheet" href="studio.css?v=0.5.3" />
-    <link rel="stylesheet" href="accounts.css?v=0.10.0" />
+    <link rel="stylesheet" href="styles.css?v=0.5.5" />
+    <link rel="stylesheet" href="studio.css?v=0.5.4" />
+    <link rel="stylesheet" href="accounts.css?v=0.10.1" />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -39,11 +39,14 @@
             <span class="nav-label" aria-hidden="true">Join</span>
           </button>
         </nav>
+        <button class="sidebar-account" id="account-button" data-view="profile" type="button" aria-label="Log in">
+          <span class="account-avatar" aria-hidden="true"><span id="account-initials" hidden></span><svg id="account-guest-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg></span>
+          <span id="account-nav-label" class="nav-label" aria-hidden="true">Log in</span>
+        </button>
       </aside>
 
     <main id="main">
       <div class="view-actions">
-      <button class="button secondary" id="account-button" type="button">Sign in</button>
       <button class="button quiet" id="exit-play-button" type="button" hidden>Exit game</button>
       </div>
       <section id="library-view" class="library-view" aria-labelledby="library-title">
@@ -111,23 +114,22 @@
             <button type="button" id="export-game-button">Export game</button>
           </div>
         </div>
-        <button class="button quiet" id="row-values-button" type="button">Row points</button><button class="button quiet" id="settings-button" type="button">Settings</button><button class="button secondary" id="preview-button" type="button">Preview</button><button class="button secondary" id="publish-button" type="button">Publish</button>
+        <button class="button quiet" id="settings-button" type="button">Settings</button><button class="button secondary" id="preview-button" type="button">Preview</button><button class="button secondary" id="publish-button" type="button">Publish</button>
         <button class="button primary" id="play-button" type="button">Play <span aria-hidden="true">→</span></button>
       </div>
 </div>
-        <div class="round-navigation"><div class="rounds-heading">Rounds <span id="round-count">1</span></div><nav id="board-list" aria-label="Game rounds"></nav><details class="round-add"><summary>Add round</summary><button class="button quiet" id="add-board-button" type="button">Standard round</button><button class="button quiet" id="add-boss-button" type="button">Boss round</button></details></div>
+        <div class="round-navigation"><div class="rounds-heading">Rounds <span id="round-count">1</span></div><nav id="board-list" aria-label="Game rounds"></nav><div class="round-add" role="group" aria-label="Add round"><button class="button quiet" id="add-board-button" type="button">+ Standard round</button><button class="button quiet" id="add-boss-button" type="button">+ Boss round</button></div></div>
         <div id="undo-notice" role="status" hidden><span>Round updated.</span><button type="button" id="undo-button">Undo</button></div>
         <section class="workspace">
           <div class="workspace-heading">
             <div>
               <div class="eyebrow" id="round-kicker">Round 1 · Standard</div>
-              <h1 id="studio-title">Build your board</h1>
-              <p id="studio-help">Name each topic, then open a card to add its clue and response.</p>
+              <h1 id="studio-title"><input id="round-title" aria-label="Round title" maxlength="80" placeholder="Round title" /></h1>
             </div>
             <div class="size-controls" id="size-controls">
               <label>Clues per topic <select id="row-count"></select></label>
               <label>Topics <select id="column-count"></select></label>
-              <details class="round-options"><summary>Round options</summary><button class="button quiet" id="delete-board-button" type="button">Delete this round</button></details>
+              <button class="button quiet" id="delete-board-button" type="button">Delete round</button>
             </div>
           </div>
           <label class="mobile-topic">Topic <select id="topic-selector"></select></label><div class="author-board" id="editor-board"></div>
@@ -168,45 +170,8 @@
         <div class="play-meta"><div><div class="eyebrow" id="play-kicker">Round 1 of 1</div><h1 id="play-game-name">Untitled game</h1></div><div id="scoreboard" class="scoreboard" aria-label="Scores"></div></div>
         <div id="play-stage" class="play-stage"></div>
       </section>
-    </main>
-    </div>
-
-        <dialog id="game-settings" class="studio-dialog" aria-labelledby="settings-title"><div class="dialog-topline"><h2 id="settings-title">Game settings</h2><button type="button" class="button quiet" data-close="game-settings">Done</button></div><p id="studio-storage-help">Changes save automatically on this device. Sign in to save games to your account.</p>          <label class="field-label" for="difficulty">Difficulty</label>
-          <select id="difficulty" class="compact-select">
-            <option value="easy">● Easy</option><option value="medium">■ Medium</option><option value="hard">◆ Hard</option>
-          </select>
-          <label class="adult-content-option"><input id="adult-content" type="checkbox" /> Contains 18+ content</label><p>Marked games display an 18+ label in the public library.</p><label class="field-label" for="player-count">Players</label>
-          <select id="player-count" class="compact-select"></select>
-          <label class="field-label" for="hero-image-input">Hero image</label>
-          <label class="image-upload" for="hero-image-input">
-            <img id="hero-image-preview" alt="" hidden />
-            <span id="hero-image-copy">Choose an image</span>
-          </label>
-          <input id="hero-image-input" type="file" accept="image/*" hidden />
-          <button class="text-button" id="remove-hero-button" type="button" hidden>Remove hero image</button>
-
-</dialog>
-<dialog id="row-values-dialog" class="studio-dialog" aria-labelledby="row-values-title"><div class="dialog-topline"><h2 id="row-values-title">Row points</h2><button type="button" class="button quiet" data-close="row-values-dialog">Done</button></div><p>Values apply to the same row across every standard round. Moving a clue changes its points to match its new row. Boss rounds use wagers.</p><label class="field-label" for="row-values-preset">Point pattern</label><select id="row-values-preset"><option value="custom">Custom values</option><option value="100">100, 200, 300…</option><option value="200">200, 400, 600…</option><option value="500">500, 1,000, 1,500…</option></select><form id="row-values-form"><div id="row-values-fields" class="row-values-fields"></div><p id="row-values-error" role="alert"></p><div class="dialog-actions"><button class="button primary" type="submit">Save row points</button></div></form></dialog>
-<dialog id="clue-dialog" class="studio-dialog clue-dialog" aria-labelledby="clue-title">
-      <form method="dialog" id="clue-form">
-        <div class="dialog-topline"><div><div class="eyebrow" id="clue-location">Topic · 200</div><h2 id="clue-title">Edit clue</h2></div><button class="icon-button" type="button" id="close-clue-button" aria-label="Close">×</button></div>
-        <div class="clue-fields"><p id="clue-save-status" role="status">Changes save when you select Save clue.</p>
-        <label class="field-label" for="clue-text">Clue shown to players</label><textarea id="clue-text" name="clue" rows="4" placeholder="e.g. This planet is famous for its rings"></textarea>
-        <label class="field-label" for="clue-answer">Correct response</label><textarea id="clue-answer" name="answer" rows="3" placeholder="e.g. What is Saturn?"></textarea>
-        <details><summary>Accepted answers and explanation</summary>
-          <label class="field-label" for="clue-aliases">Alternative accepted answers (one per line)</label><textarea id="clue-aliases" name="accepted_answers" rows="3"></textarea>
-          <label class="field-label" for="clue-explanation">Explanation</label><textarea id="clue-explanation" name="explanation" rows="3"></textarea>
-        </details>
-        <details id="clue-attachment"><summary>Image attachment (optional)</summary><label class="field-label" for="clue-image-input">Choose an image</label>
-        <div class="inline-upload"><input id="clue-image-input" type="file" accept="image/*" /><button class="button quiet" id="remove-clue-image" type="button" hidden>Remove</button></div>
-        <img id="clue-image-preview" class="clue-image-preview" alt="Clue preview" hidden />
-        </details></div><div class="dialog-actions"><button class="button quiet" value="cancel" type="button" id="cancel-clue-button">Cancel</button><button class="button primary" value="save" type="submit">Save clue</button><button class="button secondary" value="next" type="submit" id="save-next-button">Save &amp; next</button></div>
-      </form>
-    </dialog>
-
-    <dialog id="studio-confirm" class="studio-dialog" aria-labelledby="confirmation-message"><form method="dialog"><h2 id="confirmation-message"></h2><div class="dialog-actions"><button class="button quiet" value="cancel" autofocus>Keep editing</button><button class="button primary" id="confirmation-accept" value="accept">Continue</button></div></form></dialog>
-    <dialog id="account-dialog" class="studio-dialog account-dialog" aria-labelledby="account-title">
-      <div class="dialog-topline"><h2 id="account-title">Sign in</h2><button id="account-close" class="button quiet" type="button">Close</button></div>
+    <section id="profile-view" class="profile-view" hidden aria-labelledby="account-title">
+      <div class="profile-card"><h1 id="account-title" tabindex="-1">Sign in</h1>
       <div id="account-signed-out">
         <p id="account-intro">Welcome back. Your games and daily results are waiting.</p>
         <form id="account-form">
@@ -227,12 +192,51 @@
       <div id="account-signed-in" hidden><p id="account-label"></p><p>Your games stay private until you publish. Daily results save to your account automatically.</p><button id="claim-daily" class="button secondary" type="button">Claim this browser’s guest daily history</button><p>If both identities played the same day, your account answer is kept and the overlapping time is voided.</p><button id="account-logout" class="button quiet" type="button">Sign out</button></div>
       <p id="account-message" role="status"></p>
       <p id="account-error" class="account-error" role="alert"></p>
+    </div></section>
+    </main>
+    </div>
+
+        <dialog id="game-settings" class="studio-dialog" aria-labelledby="settings-title"><div class="dialog-topline"><h2 id="settings-title">Game settings</h2><button type="button" class="button quiet" data-close="game-settings">Done</button></div><p id="studio-storage-help">Changes save automatically on this device. Sign in to save games to your account.</p>          <label class="field-label" for="difficulty">Difficulty</label>
+          <select id="difficulty" class="compact-select">
+            <option value="easy">● Easy</option><option value="medium">■ Medium</option><option value="hard">◆ Hard</option>
+          </select>
+          <label class="adult-content-option"><input id="adult-content" type="checkbox" /> Contains 18+ content</label><p>Marked games display an 18+ label in the public library.</p><label class="field-label" for="player-count">Players</label>
+          <select id="player-count" class="compact-select"></select>
+          <label class="field-label" for="hero-image-input">Hero image</label>
+          <label class="image-upload" for="hero-image-input">
+            <img id="hero-image-preview" alt="" hidden />
+            <span id="hero-image-copy">Choose an image</span>
+          </label>
+          <input id="hero-image-input" type="file" accept="image/*" hidden />
+          <button class="text-button" id="remove-hero-button" type="button" hidden>Remove hero image</button>
+
+<section class="settings-row-points" aria-labelledby="row-values-title"><h2 id="row-values-title">Row points</h2><p>Values apply to the same row across every standard round. Moving a clue changes its points to match its new row. Boss rounds use wagers.</p><label class="field-label" for="row-values-preset">Point pattern</label><select id="row-values-preset"><option value="custom">Custom values</option><option value="100">100, 200, 300…</option><option value="200">200, 400, 600…</option><option value="500">500, 1,000, 1,500…</option></select><form id="row-values-form"><div id="row-values-fields" class="row-values-fields"></div><p id="row-values-error" role="alert"></p><div class="dialog-actions"><button class="button primary" type="submit">Save row points</button></div></form></section>
+</dialog>
+
+<dialog id="clue-dialog" class="studio-dialog clue-dialog" aria-labelledby="clue-title">
+      <form method="dialog" id="clue-form">
+        <div class="dialog-topline"><div><div class="eyebrow" id="clue-location">Topic · 200</div><h2 id="clue-title">Edit clue</h2></div><button class="icon-button" type="button" id="close-clue-button" aria-label="Close">×</button></div>
+        <div class="clue-fields"><p id="clue-save-status" role="status">Changes save when you select Save clue.</p>
+        <label class="field-label" for="clue-text">Clue shown to players</label><textarea id="clue-text" name="clue" rows="4" placeholder="e.g. This planet is famous for its rings"></textarea>
+        <label class="field-label" for="clue-answer">Correct response</label><textarea id="clue-answer" name="answer" rows="3" placeholder="e.g. What is Saturn?"></textarea>
+        <details><summary>Accepted answers and explanation</summary>
+          <label class="field-label" for="clue-aliases">Alternative accepted answers (one per line)</label><textarea id="clue-aliases" name="accepted_answers" rows="3"></textarea>
+          <label class="field-label" for="clue-explanation">Explanation</label><textarea id="clue-explanation" name="explanation" rows="3"></textarea>
+        </details>
+        <details id="clue-attachment"><summary>Image attachment (optional)</summary><label class="field-label" for="clue-image-input">Choose an image</label>
+        <div class="inline-upload"><input id="clue-image-input" type="file" accept="image/*" /><button class="button quiet" id="remove-clue-image" type="button" hidden>Remove</button></div>
+        <img id="clue-image-preview" class="clue-image-preview" alt="Clue preview" hidden />
+        </details></div><div class="dialog-actions"><button class="button quiet" value="cancel" type="button" id="cancel-clue-button">Cancel</button><button class="button primary" value="save" type="submit">Save clue</button><button class="button secondary" value="next" type="submit" id="save-next-button">Save &amp; next</button></div>
+      </form>
     </dialog>
-    <dialog id="author-preview" class="studio-dialog" aria-labelledby="preview-title"><div class="dialog-topline"><h2 id="preview-title">Round preview</h2><button type="button" class="button quiet" data-close="author-preview">Back to editing</button></div><div id="preview-content"></div></dialog>
+
+    <dialog id="studio-confirm" class="studio-dialog" aria-labelledby="confirmation-message"><form method="dialog"><h2 id="confirmation-message"></h2><div class="dialog-actions"><button class="button quiet" value="cancel" autofocus>Keep editing</button><button class="button primary" id="confirmation-accept" value="accept">Continue</button></div></form></dialog>
+
+
     <dialog id="publish-review" class="studio-dialog" aria-labelledby="publish-title"><h2 id="publish-title">Review your game</h2><p>Your game will be shared in the public library.</p><div id="publish-summary"></div><div class="dialog-actions"><button type="button" class="button quiet" data-close="publish-review">Keep editing</button><button type="button" class="button primary" id="confirm-publish">Publish publicly</button></div><p id="publish-error" role="alert"></p></dialog>
     <dialog id="card-dialog" class="dialog play-card-dialog"><div id="card-dialog-content"></div></dialog>
     <input id="file-input" type="file" accept="application/json,.json" hidden />
     <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
-    <script type="module" src="app.js?v=0.10.0"></script>
+    <script type="module" src="app.js?v=0.10.1"></script>
   </body>
 </html>

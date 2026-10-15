@@ -1,16 +1,16 @@
-import { buzzTimer } from "../core.mjs?v=0.10.0";
-import { state } from "./state.js?v=0.10.0";
+import { buzzTimer } from "../core.mjs?v=0.10.1";
+import { state } from "./state.js?v=0.10.1";
 
 export const $ = (selector) => document.querySelector(selector);
 
 export const elements = {
-  daily: $("#daily-view"), library: $("#library-view"), studio: $("#studio-view"), setup: $("#play-setup-view"),
+  profile: $("#profile-view"), daily: $("#daily-view"), library: $("#library-view"), studio: $("#studio-view"), setup: $("#play-setup-view"),
   join: $("#join-view"), host: $("#host-view"), play: $("#play-view"),
   editorActions: $("#editor-actions"), exitPlay: $("#exit-play-button"), boardList: $("#board-list"),
   editorBoard: $("#editor-board"), gameName: $("#game-name"), playerCount: $("#player-count"),
   difficulty: $("#difficulty"), heroInput: $("#hero-image-input"), heroPreview: $("#hero-image-preview"),
   rowCount: $("#row-count"), columnCount: $("#column-count"), roundCount: $("#round-count"),
-  roundKicker: $("#round-kicker"), studioTitle: $("#studio-title"), studioHelp: $("#studio-help"),
+  roundKicker: $("#round-kicker"), studioTitle: $("#studio-title"),
   deleteBoard: $("#delete-board-button"), clueDialog: $("#clue-dialog"), clueForm: $("#clue-form"),
   fileInput: $("#file-input"), exportMenu: $("#export-menu"), exportButton: $("#export-button"),
   playerFields: $("#player-name-fields"), startingPoints: $("#starting-points"), scoreboard: $("#scoreboard"),
@@ -34,12 +34,13 @@ export function configureViewRenderers(renderers) {
 export function switchView(view) {
   if (view === "studio" && state.game !== state.authoredGame) state.game = state.authoredGame;
   state.currentView = view;
-  for (const name of ["library", "daily", "studio", "setup", "join", "host", "play"]) {
+  for (const name of ["library", "daily", "studio", "setup", "join", "host", "play", "profile"]) {
     elements[name].hidden = view !== name;
   }
   elements.editorActions.hidden = view !== "studio";
+  elements.exitPlay.textContent = state.session?.preview && view === "play" ? "Back to editing" : "Exit game";
   elements.exitPlay.hidden = !["setup", "play", "host"].includes(view);
-  document.querySelectorAll(".main-nav button").forEach((button) => {
+  document.querySelectorAll(".sidebar [data-view]").forEach((button) => {
     const active = button.dataset.view === view;
     button.classList.toggle("active", active);
     if (active) button.setAttribute("aria-current", "page");

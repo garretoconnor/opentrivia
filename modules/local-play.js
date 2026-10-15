@@ -4,11 +4,11 @@ import {
   gradeBossGuess,
   isBossBoard,
   setWager,
-} from "../core.mjs?v=0.10.0";
-import { api } from "./data.js?v=0.10.0";
-import { rateGame, recordLocalPlay } from "./library.js?v=0.10.0";
-import { $, elements, escapeHtml, formatText, answerDetails, switchView, toast } from "./render.js?v=0.10.0";
-import { saveGame, state } from "./state.js?v=0.10.0";
+} from "../core.mjs?v=0.10.1";
+import { api } from "./data.js?v=0.10.1";
+import { rateGame, recordLocalPlay } from "./library.js?v=0.10.1";
+import { $, elements, escapeHtml, formatText, answerDetails, switchView, toast } from "./render.js?v=0.10.1";
+import { saveGame, state } from "./state.js?v=0.10.1";
 
 let openHostedPlayCard = () => {};
 let closeHostedRoom = () => {};
@@ -16,6 +16,13 @@ let closeHostedRoom = () => {};
 export function initLocalPlay(dependencies) {
   openHostedPlayCard = dependencies.openHostedPlayCard;
   closeHostedRoom = dependencies.closeHostedRoom;
+  $("#preview-button").addEventListener("click", previewRound);
+  document.addEventListener("opentrivia:view", () => {
+    if (previewSnapshot && state.currentView !== "play") {
+      Object.assign(state, previewSnapshot);
+      previewSnapshot = null;
+    }
+  });
   $("#play-button").addEventListener("click", () => showSetup("studio"));
   $("#cancel-setup-button").addEventListener("click", () => switchView(state.returnView));
   $("#launch-button").addEventListener("click", launchGame);
@@ -25,6 +32,24 @@ export function initLocalPlay(dependencies) {
   elements.cardDialog.addEventListener("cancel", (event) => {
     if (state.session?.hosted && state.hostClueLocation) event.preventDefault();
   });
+}
+
+let previewSnapshot = null;
+export function previewRound() {
+  previewSnapshot = { game: state.game, session: state.session, publishedGameId: state.publishedGameId, returnView: state.returnView };
+  state.game = structuredClone(state.authoredGame);
+  state.publishedGameId = null;
+  state.returnView = "studio";
+  state.session = {
+    preview: true,
+    players: createPlayers(Array.from({ length: state.game.num_players }, (_, index) => `Player ${index + 1}`), 1000),
+    boardIndex: state.selectedBoard,
+    used: state.game.boards.map(board => board.columns.map(column => column.clues.map(() => false))),
+    bossPhase: "category",
+  };
+  elements.playGameName.textContent = state.game.name;
+  switchView("play");
+  renderPlayRound();
 }
 
 export function showSetup(source = "studio", gameId = null) {
@@ -75,7 +100,7 @@ export function renderScoreboard() {
 
 export function renderPlayRound() {
   const board = state.game.boards[state.session.boardIndex];
-  elements.playKicker.textContent = `Round ${state.session.boardIndex + 1} of ${state.game.boards.length} · ${isBossBoard(board) ? "Boss" : "Standard"}`;
+  elements.playKicker.textContent = `${state.session.preview ? "Preview · " : ""}${board.title ? `${board.title} · ` : ""}Round ${state.session.boardIndex + 1} of ${state.game.boards.length} · ${isBossBoard(board) ? "Boss" : "Standard"}`;
   renderScoreboard();
   if (isBossBoard(board)) renderBossRound();
   else renderStandardRound();

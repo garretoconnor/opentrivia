@@ -1,7 +1,7 @@
-import { createGame, normalizeGame } from '../core.mjs?v=0.10.0';
-import { api } from './data.js?v=0.10.0';
-import { $, escapeHtml, switchView, toast } from './render.js?v=0.10.0';
-import { configurePersistence, loadGuestGame, localLibrary, state, STORAGE_KEY } from './state.js?v=0.10.0';
+import { createGame, normalizeGame } from '../core.mjs?v=0.10.1';
+import { api } from './data.js?v=0.10.1';
+import { $, escapeHtml, switchView, toast } from './render.js?v=0.10.1';
+import { configurePersistence, loadGuestGame, localLibrary, state, STORAGE_KEY } from './state.js?v=0.10.1';
 
 let context = null;
 let debounce;
@@ -101,7 +101,13 @@ async function attachAccount(account) {
       } catch { setWorkingGame(createGame(), null); }
     } else setWorkingGame(createGame(), null);
   } else setWorkingGame(loadGuestGame(), null);
-  $('#account-button').textContent = account ? `Account: ${account.name}` : 'Sign in';
+  $('#account-nav-label').textContent = account ? account.name : 'Log in';
+  $('#account-button').setAttribute('aria-label', account ? `Profile: ${account.name}` : 'Log in');
+  $('#account-button').title = account ? account.name : 'Log in';
+  $('#account-initials').textContent = account ? Array.from(account.name.trim()).slice(0, 2).join('').toLocaleUpperCase() : '';
+  $('#account-initials').hidden = !account;
+  $('#account-guest-icon').hidden = Boolean(account);
+  if (account) $('#account-title').textContent = 'Your profile';
   $('#account-signed-out').hidden = Boolean(account);
   $('#account-signed-in').hidden = !account;
   $('#account-label').textContent = account ? account.name : '';
@@ -175,13 +181,17 @@ export async function initAccounts(dependencies) {
   renderStudio = dependencies.renderStudio; changed = dependencies.changed;
   configurePersistence(persist);
   $('#studio-view').inert = true;
-  $('#account-button').addEventListener('click', () => {
+  $('#account-button').addEventListener('click', async () => {
+    if (state.currentView === 'host') {
+      await dependencies.closeHostedRoom?.({ quiet: true });
+      if (state.hostedRoom) return;
+    }
     if (!state.account && !resetToken) setMode('login');
-    $('#account-title').textContent = state.account && !resetToken ? 'Your account' : $('#account-title').textContent;
-    $('#account-error').textContent = ''; $('#account-dialog').showModal();
+    $('#account-title').textContent = state.account && !resetToken ? 'Your profile' : $('#account-title').textContent;
+    $('#account-error').textContent = ''; switchView('profile');
+    $('#account-title').focus?.();
     if (!state.account && !resetToken) $('#account-email').focus?.();
   });
-  $('#account-close').addEventListener('click', () => $('#account-dialog').close());
   let resetToken = '', accountMode = 'login';
   const appOrigin = () => window.location?.origin || '';
   function setMode(mode) {
@@ -244,7 +254,7 @@ export async function initAccounts(dependencies) {
         const response = await api('/api/account');
         if (!response.account) throw new Error('Verify your email before signing in.');
         accountReady = true; $('#studio-view').inert = false; await attachAccount(response.account);
-        $('#account-dialog').close();
+        $('#account-title').focus?.();
       }
       $('#account-password').value = ''; $('#account-confirm').value = '';
     } catch (error) { $('#account-error').textContent = error.message; }
@@ -254,7 +264,7 @@ export async function initAccounts(dependencies) {
     try {
       if (!await flushCloud()) throw new Error('Your changes have not synced. Retry or export your game before signing out.');
       await api('/api/auth/sign-out', { method: 'POST', body: '{}' });
-      await attachAccount(null); $('#account-dialog').close();
+      await attachAccount(null); setMode('login');
     } catch (error) { $('#account-error').textContent = error.message; }
   });
   const callback = new URLSearchParams(window.location?.search || '');
@@ -264,7 +274,7 @@ export async function initAccounts(dependencies) {
     if (callback.has('error') || callback.get('auth') === 'reset' && !resetToken) $('#account-error').textContent = 'This email link is invalid or expired. Request a new link.';
     else if (!resetToken) $('#account-message').textContent = 'Email verified. Sign in to continue.';
     window.history?.replaceState({}, '', window.location.pathname);
-    $('#account-dialog').showModal();
+    switchView('profile');
   }
   $('#claim-daily').addEventListener('click', async () => {
     try { const result = await api('/api/daily/claim', { method: 'POST', body: '{}' }); toast(result.claimed ? 'Guest daily history added to your account.' : 'No unclaimed guest history was found in this browser.'); changed(); }
@@ -288,7 +298,7 @@ export async function initAccounts(dependencies) {
   try {
     const response = await api('/api/account');
     accountReady = true; $('#studio-view').inert = false; await attachAccount(response.account);
-    if (resetToken) { $('#account-signed-out').hidden = false; $('#account-signed-in').hidden = true; }
+    if (resetToken) { setMode('reset'); $('#account-signed-out').hidden = false; $('#account-signed-in').hidden = true; }
   } catch (error) {
     // Never treat an unavailable session lookup as an authenticated account or silently save its edits as guest data.
     accountReady = [404, 501, 503].includes(error.status);

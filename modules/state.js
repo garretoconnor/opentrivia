@@ -1,4 +1,4 @@
-import { applyRowValues, createGame, normalizeGame } from "../core.mjs?v=0.10.0";
+import { applyRowValues, createGame, normalizeGame } from "../core.mjs?v=0.10.1";
 
 export const STORAGE_KEY = "opentrivia.game.v0.2";
 export const LEGACY_STORAGE_KEY = "opentrivia.game.v0.1";

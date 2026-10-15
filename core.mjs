@@ -101,10 +101,12 @@ export function normalizeBoard(input, label = "board") {
   if (!Array.isArray(board.columns)) throw new Error(`${label}.columns must be an array.`);
   assertIntegerInRange(board.columns.length, LIMITS.minColumns, LIMITS.maxColumns, `${label}.columns length`);
 
+  if (board.title !== undefined && (typeof board.title !== "string" || board.title.length > 80)) throw new Error(`${label}.title must be a string of at most 80 characters.`);
   const boss = board.columns.length === 1
     && board.columns[0]?.size === 1
     && board.columns[0]?.clues?.length === 1;
   return {
+    ...(board.title !== undefined ? { title: board.title } : {}),
     columns: board.columns.map((column, columnIndex) => {
       const path = `${label}.columns[${columnIndex}]`;
       if (!isObject(column)) throw new Error(`${path} must be an object.`);
