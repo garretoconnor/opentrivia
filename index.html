@@ -58,7 +58,7 @@
           <button class="button primary" id="hero-create-button" type="button">Create a game</button>
         </div>
       <section id="my-games-panel" class="account-games-panel" hidden aria-labelledby="my-games-title">
-        <div class="library-heading"><div><h2 id="my-games-title">My Games</h2><p id="my-games-status" role="status"></p></div><div class="account-actions"><button class="button quiet" id="refresh-my-games" type="button">Refresh</button><button class="button secondary" id="import-local-games" type="button">Import local games</button><button class="button primary" id="new-cloud-game" type="button">New game</button></div></div>
+        <div class="library-heading"><div><h2 id="my-games-title">My Games</h2><p id="my-games-status" role="status"></p></div><div class="account-actions"><button class="button quiet" id="refresh-my-games" type="button">Refresh</button><button class="button primary" id="new-cloud-game" type="button">New game</button></div></div>
         <div id="my-games-list" class="cloud-games-list"></div>
       </section>
 
@@ -189,7 +189,7 @@
         <p id="account-login-prompt" class="account-footer" hidden><span id="account-login-copy">Already have an account?</span> <button id="account-login-link" class="account-link" type="button">Sign in</button></p>
         <p id="account-resend-prompt" class="account-footer account-secondary"><button id="account-resend-link" class="account-link" type="button">Resend verification email</button></p>
       </div>
-      <div id="account-signed-in" hidden><p id="account-label" hidden></p><div id="own-profile-content"></div><p>Your games stay private until you publish. Daily results save to your account automatically.</p><button id="claim-daily" class="button secondary" type="button">Claim this browser’s guest daily history</button><p>If both identities played the same day, your account answer is kept and the overlapping time is voided.</p><button id="account-logout" class="button quiet" type="button">Sign out</button></div>
+      <div id="account-signed-in" hidden><p id="account-label" hidden></p><div id="own-profile-content"></div><p>Your games stay private until you publish. Daily results save to your account automatically.</p><button id="review-browser-data" class="button secondary" type="button" hidden>Review this browser’s history</button><button id="account-logout" class="button quiet" type="button">Sign out</button></div>
       <p id="account-message" role="status"></p>
       <p id="account-error" class="account-error" role="alert"></p>
     </div></section>
@@ -237,9 +237,10 @@
 
 
     <dialog id="publish-review" class="studio-dialog" aria-labelledby="publish-title"><h2 id="publish-title">Review your game</h2><p>Your game will be shared in the public library.</p><div id="publish-summary"></div><div class="dialog-actions"><button type="button" class="button quiet" data-close="publish-review">Keep editing</button><button type="button" class="button primary" id="confirm-publish">Publish publicly</button></div><p id="publish-error" role="alert"></p></dialog>
+    <dialog id="browser-data-review" class="profile-popover" aria-labelledby="browser-data-title"><h2 id="browser-data-title">Add this browser’s history?</h2><p id="browser-data-summary"></p><ul id="browser-data-games"></ul><p id="browser-data-daily"></p><p id="browser-data-error" role="alert"></p><div class="dialog-actions"><button id="browser-data-later" class="button quiet" type="button">Not now</button><button id="browser-data-confirm" class="button primary" type="button">Add to my account</button></div></dialog>
     <dialog id="card-dialog" class="dialog play-card-dialog"><div id="card-dialog-content"></div></dialog>
     <input id="file-input" type="file" accept="application/json,.json" hidden />
     <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
-    <script type="module" src="app.js?v=0.10.5"></script>
+    <script type="module" src="app.js?v=0.10.6"></script>
   </body>
 </html>

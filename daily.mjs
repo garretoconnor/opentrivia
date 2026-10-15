@@ -92,6 +92,10 @@ export async function handleDaily(request, env, now = () => Date.now()) {
   const account = await resolveAccount(request, env);
   const expectedAccount = request.headers.get('x-opentrivia-account');
   if (expectedAccount && expectedAccount !== (account?.id || 'guest')) return fail('Your account changed in another tab. Reload to continue.', 409);
+  if (path === '/api/daily/claim' && request.method === 'GET') {
+    const { previewDailyClaim } = await import('./accounts.mjs');
+    return previewDailyClaim(request, DB, account);
+  }
   if (path === '/api/daily/claim' && request.method === 'POST') {
     const { claimDaily } = await import('./accounts.mjs');
     return claimDaily(request, DB, account);

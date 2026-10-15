@@ -9,7 +9,7 @@ class Element {
   replaceChildren(...children) { this.children = children; }
   remove() {}
   setAttribute() {} removeAttribute() {} append(node) { this.children.push(node); }
-  querySelector() { return new Element(); } showModal() {} close() {}
+  querySelector() { return new Element(); } showModal() { this.open = true; } close() { this.open = false; }
 }
 const schedule = globalThis.setTimeout;
 globalThis.setTimeout = (fn, ms) => { const timer = schedule(fn, ms); timer.unref(); return timer; };
@@ -43,7 +43,8 @@ async function reset(cached, options = {}) {
       return Response.json({ user: currentAccount, status: true });
     }
     if (path === '/api/auth/sign-out') { currentAccount = null; return Response.json({ account: null }); }
-    if (path === '/api/account/games') return Response.json({ games: [] });
+    if (path === '/api/daily/claim') return Response.json({ days: 0, answers: 0, overlappingDays: 0, overlappingAnswers: 0 });
+    if (path === '/api/account/games') return Response.json({ games: [...server.entries()].map(([id, entry]) => ({ id, title: entry.game.name })) });
     const id = path.split('/').pop(), existing = server.get(id);
     if (options.method === 'PUT') {
       if (hold) await hold;
@@ -112,10 +113,11 @@ test('cloud saving works when device storage is full and logout restores the gue
 
 test('local draft imports are idempotent even if the local import marker is lost', async () => {
   await reset();
-  await get('#import-local-games').fire('click');
+  await get('#browser-data-confirm').fire('click');
   assert.equal(server.size, 1); assert.equal([...server.values()][0].game.name, 'Guest draft');
   for (const key of storage.keys()) if (key.startsWith('opentrivia.import.')) storage.delete(key);
-  await get('#import-local-games').fire('click');
+  await get('#review-browser-data').fire('click');
+  assert.equal(get('#review-browser-data').hidden, true);
   assert.equal(server.size, 1);
   assert.equal(JSON.parse(storage.get(STORAGE_KEY)).name, 'Guest draft');
 });
@@ -198,4 +200,45 @@ test('email callbacks open the profile page with the appropriate auth state', as
   await reset(undefined, { signedOut: true, search: '?auth=verified' });
   assert.equal(state.currentView, 'profile');
   assert.match(get('#account-message').textContent, /Email verified/);
+});
+
+test('login prepares a review without importing, and dismissal keeps data local', async () => {
+  await reset(undefined, { signedOut: true });
+  assert.equal(get('#browser-data-review').open, false);
+  await get('#account-form').fire('submit');
+  assert.equal(get('#browser-data-review').open, true);
+  assert.equal(server.size, 0);
+  assert.equal(get('#browser-data-games').children[0].textContent, 'Guest draft');
+  await get('#browser-data-later').fire('click');
+  assert.equal(get('#browser-data-review').open, false);
+  assert.equal(server.size, 0);
+  await get('#review-browser-data').fire('click');
+  await get('#browser-data-confirm').fire('click');
+  assert.equal(server.size, 1);
+  assert.equal(get('#review-browser-data').hidden, true);
+});
+test('empty browser and exact cloud duplicates do not offer imports', async () => {
+  await reset();
+  storage.clear();
+  get('#browser-data-review').close();
+  await get('#review-browser-data').fire('click');
+  assert.equal(get('#browser-data-review').open, false);
+  assert.equal(get('#review-browser-data').hidden, true);
+  const game = { ...createGame(), name: 'Already saved' };
+  storage.set(STORAGE_KEY, JSON.stringify(game));
+  server.set(crypto.randomUUID(), { game, revision: 1 });
+  await get('#review-browser-data').fire('click');
+  assert.equal(get('#browser-data-review').open, false);
+  assert.equal(get('#review-browser-data').hidden, true);
+});
+test('failed import can be retried without losing the review or local original', async () => {
+  await reset(); fail = 503;
+  await get('#browser-data-confirm').fire('click');
+  assert.equal(get('#browser-data-review').open, true);
+  assert.match(get('#browser-data-error').textContent, /retry safely/);
+  fail = null;
+  await get('#browser-data-confirm').fire('click');
+  assert.equal(server.size, 1);
+  assert.equal(get('#browser-data-review').open, false);
+  assert.ok(storage.has(STORAGE_KEY));
 });

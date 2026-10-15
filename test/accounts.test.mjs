@@ -211,3 +211,19 @@ test('signup uses one lowercase unique username as the public name', async () =>
   const update = await c.call('/auth/update-user', { name: 'different' }, first.cookie);
   assert.equal(update.status, 400);
 });
+
+test('guest claim preview is read-only, reports overlaps, and hides claimed or account identities', async () => {
+  const c = setup(); bank(c); const guest = await guestAttempt(c);
+  const ada = await c.signup('ada');
+  const cookie = `${ada.cookie}; ${guest.cookie}`;
+  const preview = async (cookies = cookie) => (await c.call('/daily/claim', undefined, cookies)).json();
+  assert.equal((await c.call('/daily/claim')).status, 401);
+  assert.deepEqual(await preview(), { days: 1, answers: 1, overlappingDays: 0, overlappingAnswers: 0 });
+  assert.equal(c.DB.sqlite.prepare('SELECT COUNT(*) AS n FROM daily_claims').get().n, 0);
+  await c.call('/daily/start', { day: guest.day }, ada.cookie);
+  await c.call('/daily/answer', { day: guest.day, answer: 'wrong' }, ada.cookie);
+  assert.deepEqual(await preview(), { days: 1, answers: 1, overlappingDays: 1, overlappingAnswers: 1 });
+  assert.equal((await preview(`${ada.cookie}; opentrivia_daily=${ada.account.id}`)).days, 0);
+  await c.call('/daily/claim', {}, cookie);
+  assert.equal((await preview()).days, 0);
+});
