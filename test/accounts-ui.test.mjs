@@ -19,8 +19,8 @@ const storage = new Map(); let storageFails = false;
 globalThis.localStorage = { getItem: key => storage.get(key) ?? null, setItem(key, value) { if (storageFails) throw new Error('Full'); storage.set(key, value); } };
 globalThis.document = Object.assign(new Element(), { querySelector: get, querySelectorAll: () => [], getElementById: id => get(`#${id}`), createElement: () => new Element(), dispatchEvent() {} });
 globalThis.window = Object.assign(new Element(), { scrollTo() {}, confirm: () => true });
-const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.10.0');
-const { initAccounts, flushCloud } = await import('../modules/accounts.js?v=0.10.0');
+const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.10.1');
+const { initAccounts, flushCloud } = await import('../modules/accounts.js?v=0.10.1');
 const account = { id: 'alice-id', name: 'Alice' };
 let server, calls, fail, hold, currentAccount;
 async function reset(cached, options = {}) {
@@ -170,4 +170,32 @@ test('reset link remains usable when this browser already has a session, then re
   get('#account-password').value = 'new fixture passphrase'; get('#account-confirm').value = 'new fixture passphrase';
   await get('#account-form').fire('submit');
   assert.equal(state.account, null); assert.equal(get('#account-title').textContent, 'Sign in');
+});
+
+test('sidebar account opens a profile view and sign-out keeps login on that page', async () => {
+  await reset();
+  assert.equal(get('#account-nav-label').textContent, 'Alice');
+  assert.equal(get('#account-initials').hidden, false);
+  assert.equal(get('#account-guest-icon').hidden, true);
+  await get('#account-button').fire('click');
+  assert.equal(state.currentView, 'profile');
+  assert.equal(get('#profile-view').hidden, false);
+  assert.equal(get('#library-view').hidden, true);
+  assert.equal(get('#account-title').textContent, 'Your profile');
+  await get('#account-logout').fire('click');
+  assert.equal(state.currentView, 'profile');
+  assert.equal(get('#account-nav-label').textContent, 'Log in');
+  assert.equal(get('#account-guest-icon').hidden, false);
+  assert.equal(get('#account-signed-out').hidden, false);
+  assert.equal(get('#account-title').textContent, 'Sign in');
+});
+
+test('email callbacks open the profile page with the appropriate auth state', async () => {
+  await reset(undefined, { search: '?auth=reset&token=synthetic-reset-token' });
+  assert.equal(state.currentView, 'profile');
+  assert.equal(get('#account-title').textContent, 'Choose a new password');
+  assert.equal(get('#account-signed-out').hidden, false);
+  await reset(undefined, { signedOut: true, search: '?auth=verified' });
+  assert.equal(state.currentView, 'profile');
+  assert.match(get('#account-message').textContent, /Email verified/);
 });

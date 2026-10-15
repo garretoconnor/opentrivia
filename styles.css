@@ -972,6 +972,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .app-layout > main { min-width: 0; }
 
 .sidebar {
+  display: flex;
+  flex-direction: column;
   position: fixed;
   z-index: 30;
   inset: 0 auto 0 0;
@@ -1006,7 +1008,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .sidebar:has(:focus-visible) .nav-label { opacity: 1; visibility: visible; }
 
 .main-nav { display: flex; flex-direction: column; align-items: stretch; gap: 14px; width: 100%; }
-.main-nav button {
+.main-nav button,
+.sidebar-account {
   position: relative;
   display: flex;
   align-items: center;
@@ -1025,12 +1028,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 .nav-icon { position: relative; z-index: 1; flex: 0 0 24px; width: 24px; height: 24px; filter: drop-shadow(0 1px 0 rgba(255,255,255,.9)); }
 .nav-label { position: relative; z-index: 1; }
-.main-nav button:hover {
+.main-nav button:hover,
+.sidebar-account:hover {
   border-color: rgba(255,255,255,.95);
   background: linear-gradient(180deg, rgba(255,255,255,.8), rgba(134,225,247,.45));
   box-shadow: inset 0 1px 0 white, 0 3px 9px rgba(0,105,145,.12);
 }
-.main-nav button.active {
+.main-nav button.active,
+.sidebar-account.active {
   border-color: #198fb7;
   background: radial-gradient(ellipse at 50% 115%, #afffec 0, transparent 62%), linear-gradient(180deg, #80edff 0%, #32c8ec 46%, #079ccc 50%, #39c8da 100%);
   color: #004864;
@@ -1086,3 +1091,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .daily-table { font-variant-numeric: tabular-nums; }
 
 .adult-badge { display: inline-block; padding: 3px 8px; border-radius: 6px; background: #fff0df; color: #8a4513; font-size: .8rem; font-weight: 750; }
+
+.sidebar-account { margin-top: auto; width: 100%; gap: 13px; padding: 10px; min-height: 56px; }
+.sidebar .main-nav { margin-bottom: 32px; }
+.account-avatar { display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border-radius: 50%; background: #d9f5fa; border: 1px solid #7fc5d5; color: #075777; font-size: .8rem; }
+.account-avatar svg { width: 22px; height: 22px; }
+.sidebar-account .nav-label { overflow: hidden; text-overflow: ellipsis; }
