@@ -97,7 +97,7 @@ export async function handleProfiles(request, env) {
   if (!visible(profile.visibility, owner, friend)) return fail('This profile is private.', 403);
   const result = { id, name: user.name, username: user.username, bio: profile.bio, picture: profile.picture, owner, relationship: friend ? 'friends' : relationship ? relationship.recipient === account.id ? 'incoming' : 'outgoing' : 'none' };
   result.stats = visible(profile.stats_visibility, owner, friend) ? await dailyStats(DB, id) : null;
-  result.games = visible(profile.games_visibility, owner, friend) ? (await DB.prepare(`SELECT id, title, hero_image, difficulty, COALESCE(json_extract(game_json, '$.adult_content'), 0) AS adult_content FROM games WHERE account_id = ? ORDER BY created_at DESC, id`).bind(id).all()).results : null;
+  result.games = visible(profile.games_visibility, owner, friend) ? (await DB.prepare(`SELECT id, title, hero_image, difficulty, COALESCE(json_extract(game_json, '$.adult_content'), 0) AS adult_content FROM games WHERE account_id = ? AND COALESCE(json_extract(game_json, '$.anonymous'), 0) = 0 ORDER BY created_at DESC, id`).bind(id).all()).results : null;
   result.friends = visible(profile.friends_visibility, owner, friend) ? (await DB.prepare(`SELECT u.id, u.name, u.username, CASE WHEN p.visibility != 'private' THEN p.picture ELSE '' END AS picture FROM friendships f
     JOIN auth_users u ON u.id = CASE WHEN f.requester = ? THEN f.recipient ELSE f.requester END
     LEFT JOIN profiles p ON p.account_id = u.id

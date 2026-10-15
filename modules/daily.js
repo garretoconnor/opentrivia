@@ -1,15 +1,16 @@
-import { api } from './data.js?v=0.10.5';
-import { $, escapeHtml } from './render.js?v=0.10.5';
-import { state } from './state.js?v=0.10.5';
+import { api } from './data.js?v=0.11.0';
+import { $, escapeHtml } from './render.js?v=0.11.0';
+import { state } from './state.js?v=0.11.0';
 
 let snapshot;
 let identityVersion = 0;
 export function resetDailyIdentity() {
   identityVersion++; snapshot = null; clearInterval(timer); clearTimeout(rolloverTimer);
   $("#daily-play").hidden = true; $("#daily-timer").hidden = true; $("#daily-question").hidden = true; $("#daily-image").hidden = true;
-  $("#daily-answer-form").hidden = true; $("#daily-result").hidden = true; $("#daily-identity").textContent = "";
+  $("#daily-answer-form").hidden = true; $("#daily-result").hidden = true;
   $("#daily-answer").value = ""; $("#daily-name").value = "";
-  if (state.currentView === "daily") loadDaily();
+  $('#daily-completed-check').setAttribute('hidden', '');
+  loadDaily();
 }
 let rolloverTimer;
 let timer;
@@ -49,7 +50,9 @@ function voidTime() {
 function render() {
   const data = snapshot;
   const revealed = Boolean(data.run || data.result);
-  $('#daily-date').textContent = `${data.day} · ${data.season?.name || 'Between seasons'}`;
+  if (data.result) $('#daily-completed-check').removeAttribute('hidden');
+  else $('#daily-completed-check').setAttribute('hidden', '');
+  $('#daily-date').textContent = new Date(`${data.day}T12:00:00Z`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
   $('#daily-status').hidden = Boolean(data.question) && !revealed;
   $('#daily-status').textContent = data.unavailable_reason || 'Answer correctly as quickly as you can. Leaving this tab or window voids your time.';
   $('#daily-topic').textContent = data.question?.topic || 'Daily trivia';
@@ -60,8 +63,6 @@ function render() {
   if (revealed && data.question?.image) $('#daily-image').src = data.question.image;
   else $('#daily-image').removeAttribute('src');
   $('#daily-answer-form').hidden = !data.run || Boolean(data.result);
-  $('#daily-identity').hidden = !revealed;
-  $('#daily-identity').textContent = data.player ? `Playing as ${data.player.name}. ${data.account ? 'Your results are saved to your account across devices.' : 'Your results are stored online and linked to this browser. Sign in to keep them across devices.'}` : '';
   $('#daily-name').readOnly = Boolean(data.account);
   if (data.player && !$('#daily-name').value) $('#daily-name').value = data.player.name;
   clearInterval(timer);
@@ -92,7 +93,8 @@ function render() {
     $('#daily-question').hidden = true;
     $('#daily-image').hidden = true;
     $('#daily-timer').hidden = true;
-    if (state.currentView === 'daily') loadDaily();
+    $('#daily-completed-check').setAttribute('hidden', '');
+    loadDaily();
   }, Math.max(1000, Date.parse(data.rolls_over_at) - Date.parse(data.server_time) + 100));
 }
 function accept(next) {
@@ -113,7 +115,6 @@ function accept(next) {
 export async function loadDaily() {
   if (loading || submitting || starting) return;
   loading = true;
-  $('#daily-refresh').disabled = true;
   $('#daily-answer-form button').disabled = true;
   $('#daily-error').textContent = '';
   const version = identityVersion;
@@ -131,13 +132,11 @@ export async function loadDaily() {
       : error.message;
   } finally {
     loading = false;
-    $('#daily-refresh').disabled = false;
     $('#daily-answer-form button').disabled = false;
-    if (version !== identityVersion && state.currentView === 'daily') loadDaily();
+    if (version !== identityVersion) loadDaily();
   }
 }
 export function initDaily() {
-  $('#daily-refresh').addEventListener('click', loadDaily);
   window.addEventListener('blur', voidTime);
   window.addEventListener('pagehide', voidTime);
   document.addEventListener('visibilitychange', () => {
@@ -162,7 +161,7 @@ export function initDaily() {
       render();
       $('#daily-answer').focus();
     } catch (error) { $('#daily-error').textContent = error.message; }
-    finally { starting = false; $('#daily-play').disabled = false; if (version !== identityVersion && state.currentView === 'daily') loadDaily(); }
+    finally { starting = false; $('#daily-play').disabled = false; if (version !== identityVersion) loadDaily(); }
   });
   $('#daily-answer-form').addEventListener('submit', async event => {
     event.preventDefault();
@@ -190,6 +189,6 @@ export function initDaily() {
         await loadDaily();
       }
       $('#daily-error').textContent = error.message;
-    } finally { submitting = false; button.disabled = false; if (version !== identityVersion && state.currentView === 'daily') loadDaily(); }
+    } finally { submitting = false; button.disabled = false; if (version !== identityVersion) loadDaily(); }
   });
 }

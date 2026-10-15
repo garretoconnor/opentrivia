@@ -13,6 +13,7 @@ class Element {
   }
   replaceChildren() { this.children = []; }
   append(child) { this.children.push(child); }
+  setAttribute(name, value) { this[name] = value; }
   removeAttribute(name) { delete this[name]; }
   querySelector() { return get('#daily-answer-form button'); }
   focus() { document.activeElement = this; }
@@ -35,7 +36,7 @@ globalThis.setInterval = fn => { intervals.set(++timerId, fn); return timerId; }
 globalThis.clearInterval = id => intervals.delete(id);
 globalThis.setTimeout = () => ++timerId;
 globalThis.clearTimeout = () => {};
-const { state } = await import('../modules/state.js?v=0.10.5');
+const { state } = await import('../modules/state.js?v=0.11.0');
 state.currentView = 'daily';
 const { initDaily, loadDaily } = await import('../modules/daily.js');
 initDaily();
@@ -138,4 +139,13 @@ test('reloading an unfinished run voids its time', async () => {
   assert.equal(server.run.voided, true);
   assert.equal(get('#daily-question').textContent, 'Resumed clue');
   assert.match(get('#daily-timer').textContent, /Time voided/);
+});
+
+ test('daily date is readable and completion check follows the current day', async () => {
+  reset('2026-10-15'); await loadDaily();
+  assert.equal(get('#daily-date').textContent, 'October 15, 2026');
+  assert.equal(get('#daily-completed-check').hidden, '');
+  server.result = { points: 0, submitted_answer: 'No', correct_answer: 'Yes' };
+  await loadDaily(); assert.equal(get('#daily-completed-check').hidden, undefined);
+  reset('2026-10-16'); await loadDaily(); assert.equal(get('#daily-completed-check').hidden, '');
 });

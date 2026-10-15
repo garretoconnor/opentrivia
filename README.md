@@ -200,3 +200,12 @@ Streaks count submitted daily answers, including incorrect answers, using the
 same 07:00 UTC rollover as daily trivia. A streak remains active until the next
 trivia day is missed. Season positions use the existing average valid completion
 time ranking, including ties; users without a qualifying time are unranked.
+
+
+### Explore and Game Studio
+
+Apply `0010_featured_games.sql` before deploying this version. In `/admin`, use **Featured games** to select public games, move them earlier in the list, and remove selections. Saving an empty list shows the standard Explore introduction; otherwise each selection becomes one carousel slide, in the configured order (maximum 50).
+
+Explore is the default landing view. Signed-in creators appear as `by @username` on public cards. Enable **Publish anonymously (hide my byline)** in Game Studio settings and publish/republish to omit attribution. Anonymous games also stay out of the creator's public game list.
+
+**My Games** lives in Game Studio, with a draft picker and a collapsible list. Guest drafts save separately on the device; signed-in drafts also sync to the account. Clue text, responses, alternatives, explanations, and images autosave. Draft switching waits for outstanding cloud saves, blocks conflicting transitions, and keeps the current draft open if syncing fails. Per-draft device backups preserve separate copies; storage or network failures are shown in the save status. Guest drafts are included in the browser-history import review after signing in.

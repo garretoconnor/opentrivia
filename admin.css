@@ -36,3 +36,6 @@ form > button { margin-top: 12px; }
 .question-meta { color: #526671; font-size: 13px; }
 [hidden] { display: none !important; }
 @media (max-width: 760px) { .columns { grid-template-columns: 1fr; } main { margin-top: 28px; padding: 0 16px; } .card { padding: 20px; } header { padding: 20px 16px; } }
+
+.featured-row { display: flex; gap: 8px; margin: 12px 0; }
+.featured-row select { flex: 1; min-width: 0; }

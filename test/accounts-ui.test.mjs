@@ -19,8 +19,8 @@ const storage = new Map(); let storageFails = false;
 globalThis.localStorage = { getItem: key => storage.get(key) ?? null, setItem(key, value) { if (storageFails) throw new Error('Full'); storage.set(key, value); } };
 globalThis.document = Object.assign(new Element(), { querySelector: get, querySelectorAll: () => [], getElementById: id => get(`#${id}`), createElement: () => new Element(), dispatchEvent() {} });
 globalThis.window = Object.assign(new Element(), { scrollTo() {}, confirm: () => true });
-const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.10.5');
-const { initAccounts, flushCloud } = await import('../modules/accounts.js?v=0.10.5');
+const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.11.0');
+const { initAccounts, flushCloud } = await import('../modules/accounts.js?v=0.11.0');
 const account = { id: 'alice-id', name: 'Alice' };
 let server, calls, fail, hold, currentAccount;
 async function reset(cached, options = {}) {
@@ -241,4 +241,52 @@ test('failed import can be retried without losing the review or local original',
   assert.equal(server.size, 1);
   assert.equal(get('#browser-data-review').open, false);
   assert.ok(storage.has(STORAGE_KEY));
+});
+
+test('switching waits for pending saves, blocks overlapping switches, and retains separate backups', async () => {
+  await reset();
+  const { openGame, activeCloudGame } = await import('../modules/accounts.js?v=0.11.0');
+  state.currentView = 'studio';
+  state.game.name = 'Draft A'; saveGame(); await flushCloud();
+  const a = activeCloudGame().id, b = crypto.randomUUID();
+  server.set(b, { game: { ...createGame(), name: 'Draft B' }, revision: 1 });
+  let release; hold = new Promise(resolve => { release = resolve; });
+  state.game.name = 'Latest A'; saveGame();
+  const opening = openGame(b);
+  assert.equal(get('#studio-view').inert, true);
+  await openGame(a);
+  release(); hold = null; await opening;
+  assert.equal(server.get(a).game.name, 'Latest A');
+  assert.equal(state.game.name, 'Draft B');
+  assert.equal(get('#studio-view').inert, false);
+  assert.equal(JSON.parse(JSON.parse(storage.get(`opentrivia.account.alice-id.draft.${a}`)).data).name, 'Latest A');
+  state.game.name = 'Latest B'; saveGame(); await openGame(a);
+  assert.equal(state.game.name, 'Latest A');
+  assert.equal(server.get(b).game.name, 'Latest B');
+});
+
+test('failed cloud sync prevents a draft switch without losing edits', async () => {
+  await reset();
+  const { openGame } = await import('../modules/accounts.js?v=0.11.0');
+  state.currentView = 'studio'; state.game.name = 'Keep me'; saveGame(); fail = 503;
+  await openGame(crypto.randomUUID());
+  assert.equal(state.game.name, 'Keep me');
+  assert.equal(get('#studio-view').inert, false);
+  fail = null; await flushCloud();
+});
+
+test('guest drafts autosave independently and survive switching in both directions', async () => {
+  await reset(null, { signedOut: true }); state.currentView = 'studio';
+  const { openGame } = await import('../modules/accounts.js?v=0.11.0');
+  state.game.name = 'Guest A'; saveGame();
+  const a = storage.get('opentrivia.guest.drafts.active');
+  await get('#new-cloud-game').fire('click');
+  state.game.name = 'Guest B'; saveGame();
+  const b = storage.get('opentrivia.guest.drafts.active');
+  assert.notEqual(a, b);
+  await openGame(a); assert.equal(state.game.name, 'Guest A');
+  await openGame(b); assert.equal(state.game.name, 'Guest B');
+  storageFails = true; state.game.name = 'Still here'; saveGame();
+  await openGame(a); assert.equal(state.game.name, 'Still here');
+  storageFails = false;
 });

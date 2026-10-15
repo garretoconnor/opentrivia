@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS featured_config (id INTEGER PRIMARY KEY CHECK (id = 1), game_ids TEXT NOT NULL DEFAULT '[]');

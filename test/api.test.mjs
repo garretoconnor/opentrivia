@@ -32,7 +32,7 @@ class MemoryStatement {
   }
 
   async all() {
-    if (this.sql.includes("FROM games g LEFT JOIN votes")) {
+    if (this.sql.includes("FROM games g LEFT JOIN auth_users")) {
       return { results: this.db.games.map((game) => this.summary(game)) };
     }
     throw new Error(`Unhandled all query: ${this.sql}`);

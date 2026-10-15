@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>Daily question bank — OpenTrivia</title>
+    <title>Admin — OpenTrivia</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/admin.css" />
   </head>
@@ -12,8 +12,8 @@
     <header><a class="brand" href="/"><img src="/ok-logo.svg" alt="" width="32" height="22" />OpenTrivia</a><a href="/">Back to trivia</a></header>
     <main>
       <p class="eyebrow">Admin</p>
-      <h1>Daily question bank</h1>
-      <p class="intro">Write a question, add the answers you’ll accept, and put it in the daily queue.</p>
+      <h1>Trivia admin</h1>
+      <p class="intro">Choose featured games and manage the daily question bank.</p>
       <p id="status" role="status" aria-live="polite"></p>
       <section id="login" class="card" aria-labelledby="login-title">
         <h2 id="login-title">Unlock the question bank</h2>
@@ -26,6 +26,7 @@
       </section>
       <div id="workspace" hidden>
         <div class="bank-heading"><p id="counts"></p><button id="lock" class="secondary" type="button">Lock admin</button></div>
+        <section class="card" aria-labelledby="featured-title"><h2 id="featured-title">Featured games</h2><p>Choose games and their order. Each selection adds one carousel slide (up to 50). Leave empty to hide the carousel.</p><form id="featured-form"><div id="featured-list"></div><button id="add-featured" type="button" class="secondary">Add game</button><button type="submit">Save featured games</button><p id="featured-status" role="status"></p></form></section>
         <div class="columns">
           <section class="card" aria-labelledby="new-title">
             <h2 id="new-title">Add a question</h2>

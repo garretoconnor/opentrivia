@@ -1,9 +1,9 @@
-import { publishCloudGame } from './accounts.js?v=0.10.5';
-import { editStudioClue } from "./studio.js?v=0.10.5";
-import { difficultySymbol, normalizeGame } from "../core.mjs?v=0.10.5";
-import { allowsLocalFallback, api } from "./data.js?v=0.10.5";
-import { $, elements, escapeHtml, switchView, toast } from "./render.js?v=0.10.5";
-import { localLibrary, saveGame, saveLocalLibrary, state, voterId } from "./state.js?v=0.10.5";
+import { publishCloudGame } from './accounts.js?v=0.11.0';
+import { editStudioClue } from "./studio.js?v=0.11.0";
+import { difficultySymbol, normalizeGame } from "../core.mjs?v=0.11.0";
+import { allowsLocalFallback, api } from "./data.js?v=0.11.0";
+import { $, elements, escapeHtml, switchView, toast } from "./render.js?v=0.11.0";
+import { localLibrary, saveGame, saveLocalLibrary, state, voterId } from "./state.js?v=0.11.0";
 
 let showSetup = () => {};
 let hostPublishedGame = () => {};
@@ -46,10 +46,13 @@ export async function loadLibrary() {
   try {
     const result = await api("/api/games");
     renderLibrary(result.games);
+    const featured = await api("/api/featured").catch(() => ({ ids: [] }));
+    renderFeatured(featured.ids.map(id => result.games.find(game => game.id === id)).filter(Boolean));
     elements.libraryStatus.textContent = `${result.games.length} public game${result.games.length === 1 ? "" : "s"}.`;
   } catch {
     const games = localLibrary().map(summarizeLocal);
     renderLibrary(games);
+    renderFeatured([]);
     elements.libraryStatus.textContent = games.length
       ? `${games.length} game${games.length === 1 ? "" : "s"} saved in this local preview.`
       : "No games yet. Create and publish the first one.";
@@ -71,7 +74,7 @@ function renderLibrary(games) {
     const image = entry.hero_image
       ? `<img class="game-card-image" src="${escapeHtml(entry.hero_image)}" alt="">`
       : `<div class="game-card-image game-card-placeholder" aria-hidden="true"><span>?</span></div>`;
-    card.innerHTML = `${image}<div class="game-card-body"><div class="difficulty ${escapeHtml(entry.difficulty)}"><span aria-hidden="true">${difficultySymbol(entry.difficulty)}</span> ${escapeHtml(entry.difficulty)}</div>${entry.adult_content ? '<span class="adult-badge">18+</span>' : ""}<h3>${escapeHtml(entry.title)}</h3><div class="game-stats"><span title="Community score">👍 ${Number(entry.score).toLocaleString()}</span><span title="Plays in the past seven days">▶ ${Number(entry.weekly_plays).toLocaleString()} this week</span></div><div class="game-card-actions"><button class="button secondary" data-action="host" type="button">Host</button><button class="button primary" data-action="play" type="button">Play</button></div></div>`;
+    card.innerHTML = `${image}<div class="game-card-body"><div class="game-badges"><div class="difficulty ${escapeHtml(entry.difficulty)}"><span aria-hidden="true">${difficultySymbol(entry.difficulty)}</span> ${escapeHtml(entry.difficulty)}</div>${entry.adult_content ? '<span class="adult-badge">18+</span>' : ""}</div><h3>${escapeHtml(entry.title)}</h3>${byline(entry)}<div class="game-stats"><span title="Community score">👍 ${Number(entry.score).toLocaleString()}</span><span title="Plays in the past seven days">▶ ${Number(entry.weekly_plays).toLocaleString()} this week</span></div><div class="game-card-actions"><button class="button secondary" data-action="host" type="button">Host</button><button class="button primary" data-action="play" type="button">Play</button></div></div>`;
     card.querySelector('[data-action="play"]').addEventListener("click", () => playPublished(entry.id));
     card.querySelector('[data-action="host"]').addEventListener("click", () => hostPublishedGame(entry.id));
     return card;
@@ -161,4 +164,28 @@ export async function rateGame(value) {
     }
   }
   document.querySelectorAll(".rating-button").forEach((button) => { button.disabled = true; });
+}
+
+function byline(game) {
+  return game.creator_username ? `<p class="game-byline">by <a href="/@${encodeURIComponent(game.creator_username)}">@${escapeHtml(game.creator_username)}</a></p>` : '';
+}
+function renderFeatured(games) {
+  const mount = $('#featured-carousel');
+  if (!games.length) {
+    mount.innerHTML = '<div><h1 id="library-title">Find tonight’s trivia game.</h1><p>Choose from community favorites to play together.</p></div>';
+    return;
+  }
+  let index = 0;
+  mount.innerHTML = '<div id="featured-slide"></div><div class="carousel-controls"><button type="button" class="button secondary" id="featured-prev" aria-label="Previous featured game">←</button><span id="featured-position" aria-live="polite"></span><button type="button" class="button secondary" id="featured-next" aria-label="Next featured game">→</button></div>';
+  const show = () => {
+    const game = games[index];
+    $('#featured-slide').innerHTML = `${game.hero_image ? `<img class="featured-image" src="${escapeHtml(game.hero_image)}" alt="" />` : ''}<div class="featured-copy"><p class="eyebrow">Featured game</p><h1 id="library-title">${escapeHtml(game.title)}</h1>${byline(game)}<div class="game-badges"><span class="difficulty ${escapeHtml(game.difficulty)}">${escapeHtml(game.difficulty)}</span>${game.adult_content ? '<span class="adult-badge">18+</span>' : ''}</div><div class="game-card-actions"><button type="button" class="button primary" id="featured-play">Play game</button><button type="button" class="button secondary" id="featured-host">Host game</button></div></div>`;
+    $('#featured-play').addEventListener('click', () => playPublished(game.id));
+    $('#featured-host').addEventListener('click', () => hostPublishedGame(game.id));
+    $('#featured-position').textContent = `${index + 1} / ${games.length}`;
+    $('#featured-prev').disabled = $('#featured-next').disabled = games.length < 2;
+  };
+  $('#featured-prev').addEventListener('click', () => { index = (index + games.length - 1) % games.length; show(); });
+  $('#featured-next').addEventListener('click', () => { index = (index + 1) % games.length; show(); });
+  show();
 }

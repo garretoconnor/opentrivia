@@ -12,11 +12,12 @@ import {
   normalizeBoard,
   normalizeGame,
   resizeBoard,
-} from "../core.mjs?v=0.10.5";
-import { $, elements, escapeHtml, fillNumberOptions, toast } from "./render.js?v=0.10.5";
-import { saveGame as persistGame, state } from "./state.js?v=0.10.5";
+} from "../core.mjs?v=0.11.0";
+import { $, elements, escapeHtml, fillNumberOptions, toast } from "./render.js?v=0.11.0";
+import { saveGame as persistGame, state } from "./state.js?v=0.11.0";
 
 let undoState = null;
+let renderedGame = null;
 let initialClue = "";
 let selectedTopic = 0;
 let draggedClue = null;
@@ -42,9 +43,23 @@ function clueDraft() {
   return JSON.stringify([$("#clue-text").value, $("#clue-answer").value, $("#clue-aliases").value, $("#clue-explanation").value, state.pendingClueImage]);
 }
 async function dismissClue() {
-  if (clueDraft() !== initialClue && !await confirmChange("Discard unsaved changes to this clue?", "Discard changes")) return;
+  if (clueDraft() !== initialClue && !autosaveClue()) return;
   elements.clueDialog.close();
   focusClue();
+}
+function autosaveClue() {
+  if (!elements.clueDialog.open) return;
+  const clue = state.game.boards[state.selectedBoard].columns[state.editingClue.columnIndex].clues[state.editingClue.row];
+  Object.assign(clue, { clue: $("#clue-text").value, answer: $("#clue-answer").value,
+    accepted_answers: $("#clue-aliases").value.split("\n").map(value => value.trim()).filter(Boolean),
+    explanation: $("#clue-explanation").value, image: state.pendingClueImage });
+  if (saveGame()) {
+    initialClue = clueDraft();
+    $("#clue-save-status").textContent = "Changes saved";
+    renderEditorBoard(); renderBoardList();
+    return true;
+  } else $("#clue-save-status").textContent = "Not saved. Keep this editor open and retry after freeing device storage.";
+  return false;
 }
 function focusClue() {
   const { columnIndex, row } = state.editingClue;
@@ -52,9 +67,11 @@ function focusClue() {
 }
 
 export function renderStudio() {
+  if (renderedGame !== state.game) { undoState = null; $("#undo-notice").hidden = true; selectedTopic = 0; renderedGame = state.game; }
   const board = state.game.boards[state.selectedBoard];
   const boss = isBossBoard(board);
   applyRowValues(state.game);
+  $("#anonymous-game").checked = state.game.anonymous;
   $("#adult-content").checked = state.game.adult_content;
   elements.gameName.value = state.game.name;
   elements.playerCount.value = String(state.game.num_players);
@@ -234,7 +251,7 @@ function openClueEditor(columnIndex, row) {
   state.pendingClueImage = clue.image || "";
   renderClueImagePreview();
   initialClue = clueDraft();
-  $("#clue-save-status").textContent = "Changes save when you select Save clue.";
+  $("#clue-save-status").textContent = "Changes save automatically.";
   $("#clue-attachment").open = false;
   if (!elements.clueDialog.open) elements.clueDialog.showModal();
   $("#clue-text").focus();
@@ -313,7 +330,9 @@ function safeFilename(name) {
 
 async function importFile(file) {
   try {
+    const targetGame = state.game;
     const data = JSON.parse(await file.text());
+    if (state.game !== targetGame) throw new Error("The draft changed. Import the file again.");
     if (data && typeof data === "object" && "game" in data) {
       state.game = normalizeGame(data);
       state.authoredGame = state.game;
@@ -341,22 +360,22 @@ export function initStudio() {
   fillNumberOptions(elements.rowCount, LIMITS.minRows, LIMITS.maxRows);
   fillNumberOptions(elements.columnCount, LIMITS.minColumns, LIMITS.maxColumns);
 
+  $("#anonymous-game").addEventListener("change", () => { state.game.anonymous = $("#anonymous-game").checked; saveGame(); });
   $("#adult-content").addEventListener("change", () => { state.game.adult_content = $("#adult-content").checked; saveGame(); });
-  $("#round-title").addEventListener("change", () => {
+  $("#round-title").addEventListener("input", () => {
     const board = state.game.boards[state.selectedBoard];
-    const previous = board.title;
     board.title = $("#round-title").value.trim();
-    if (!saveGame()) { if (previous === undefined) delete board.title; else board.title = previous; }
-    renderStudio();
+    saveGame();
+    renderBoardList();
   });
   $("#row-values-preset").addEventListener("change", () => {
     const step = Number($("#row-values-preset").value);
     if (!step) return;
     $("#row-values-fields").querySelectorAll("input").forEach((input, row) => { input.value = (row + 1) * step; });
+    saveRowValues();
   });
-  $("#row-values-fields").addEventListener("input", () => { $("#row-values-preset").value = "custom"; });
-  $("#row-values-form").addEventListener("submit", event => {
-    event.preventDefault();
+  $("#row-values-fields").addEventListener("input", () => { $("#row-values-preset").value = "custom"; saveRowValues(); });
+  function saveRowValues() {
     const values = [...$("#row-values-fields").querySelectorAll("input")].map(input => Number(input.value));
     if (values.some(value => !Number.isSafeInteger(value) || value < 1)) { $("#row-values-error").textContent = "Enter a positive whole number for every row."; return; }
     const previous = [...state.game.row_values];
@@ -365,8 +384,9 @@ export function initStudio() {
     values.forEach((value, row) => { state.game.row_values[row] = value; });
     if (!saveGame()) { state.game.row_values = previous; applyRowValues(state.game); $("#row-values-error").textContent = "Could not save. Check device storage and try again."; return; }
     renderStudio();
-    toast("Row points saved for all rounds.");
-  });
+    $("#row-values-error").textContent = "";
+  }
+  $("#row-values-form").addEventListener("submit", event => { event.preventDefault(); saveRowValues(); });
   elements.gameName.addEventListener("input", () => { state.game.name = elements.gameName.value; saveGame(); });
   elements.playerCount.addEventListener("change", () => { state.game.num_players = Number(elements.playerCount.value); saveGame(); });
   elements.difficulty.addEventListener("change", () => {
@@ -375,7 +395,10 @@ export function initStudio() {
   });
   elements.heroInput.addEventListener("change", async () => {
     try {
-      state.game.hero_image = await readImage(elements.heroInput.files[0]);
+      const game = state.game;
+      const image = await readImage(elements.heroInput.files[0]);
+      if (state.game !== game) throw new Error("The draft changed. Please choose the image again.");
+      state.game.hero_image = image;
       saveGame();
       renderStudio();
     } catch (error) {
@@ -430,18 +453,22 @@ export function initStudio() {
   $("#clue-image-input").addEventListener("change", async (event) => {
     const input = event.currentTarget;
     try {
-      state.pendingClueImage = await readImage(input.files[0]);
+      const game = state.game, location = state.editingClue;
+      const image = await readImage(input.files[0]);
+      if (state.game !== game || state.editingClue !== location || !elements.clueDialog.open) throw new Error("The clue changed. Please choose the image again.");
+      state.pendingClueImage = image;
       renderClueImagePreview();
+      autosaveClue();
     } catch (error) {
       toast(error.message, true);
     }
     input.value = "";
   });
-  $("#remove-clue-image").addEventListener("click", () => { state.pendingClueImage = ""; renderClueImagePreview(); });
+  $("#remove-clue-image").addEventListener("click", () => { state.pendingClueImage = ""; renderClueImagePreview(); autosaveClue(); });
   $("#cancel-clue-button").addEventListener("click", dismissClue);
   $("#close-clue-button").addEventListener("click", dismissClue);
   elements.clueDialog.addEventListener("cancel", event => { event.preventDefault(); dismissClue(); });
-  elements.clueForm.addEventListener("input", () => { $("#clue-save-status").textContent = "Unsaved changes"; });
+  elements.clueForm.addEventListener("input", autosaveClue);
   $("#settings-button").addEventListener("click", () => { renderRowValues(); $("#game-settings").showModal(); });
   document.querySelectorAll("[data-close]").forEach(button => button.addEventListener("click", () => document.getElementById(button.dataset.close).close()));
   $("#topic-selector").addEventListener("change", event => { selectedTopic = Number(event.target.value); renderEditorBoard(); });
