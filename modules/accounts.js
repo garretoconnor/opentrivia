@@ -1,7 +1,7 @@
-import { createGame, normalizeGame } from '../core.mjs?v=0.10.1';
-import { api } from './data.js?v=0.10.1';
-import { $, escapeHtml, switchView, toast } from './render.js?v=0.10.1';
-import { configurePersistence, loadGuestGame, localLibrary, state, STORAGE_KEY } from './state.js?v=0.10.1';
+import { createGame, normalizeGame } from '../core.mjs?v=0.10.2';
+import { api } from './data.js?v=0.10.2';
+import { $, escapeHtml, switchView, toast } from './render.js?v=0.10.2';
+import { configurePersistence, loadGuestGame, localLibrary, state, STORAGE_KEY } from './state.js?v=0.10.2';
 
 let context = null;
 let debounce;
@@ -104,7 +104,7 @@ async function attachAccount(account) {
   $('#account-nav-label').textContent = account ? account.name : 'Log in';
   $('#account-button').setAttribute('aria-label', account ? `Profile: ${account.name}` : 'Log in');
   $('#account-button').title = account ? account.name : 'Log in';
-  $('#account-initials').textContent = account ? Array.from(account.name.trim()).slice(0, 2).join('').toLocaleUpperCase() : '';
+  $('#account-initials').textContent = account ? account.name.trim().split(/\s+/).slice(0, 2).map(part => Array.from(part)[0]).join('').toLocaleUpperCase() : '';
   $('#account-initials').hidden = !account;
   $('#account-guest-icon').hidden = Boolean(account);
   if (account) $('#account-title').textContent = 'Your profile';

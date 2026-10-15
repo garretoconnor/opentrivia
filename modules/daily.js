@@ -1,6 +1,6 @@
-import { api } from './data.js?v=0.10.1';
-import { $, escapeHtml } from './render.js?v=0.10.1';
-import { state } from './state.js?v=0.10.1';
+import { api } from './data.js?v=0.10.2';
+import { $, escapeHtml } from './render.js?v=0.10.2';
+import { state } from './state.js?v=0.10.2';
 
 let snapshot;
 let identityVersion = 0;

@@ -1,12 +1,13 @@
-import { initAccounts } from './modules/accounts.js?v=0.10.1';
-import { initDaily, loadDaily, resetDailyIdentity } from "./modules/daily.js?v=0.10.1";
-import { closeHostedRoom, hostPublished, initHost, openHostedPlayCard } from "./modules/host.js?v=0.10.1";
-import { initLibrary, loadLibrary } from "./modules/library.js?v=0.10.1";
-import { initLocalPlay, showSetup } from "./modules/local-play.js?v=0.10.1";
-import { initPlayer } from "./modules/player.js?v=0.10.1";
-import { $, configureViewRenderers, elements, switchView } from "./modules/render.js?v=0.10.1";
-import { initStudio, renderStudio } from "./modules/studio.js?v=0.10.1";
-import { state } from "./modules/state.js?v=0.10.1";
+import { initProfiles, refreshProfileIdentity } from './modules/profiles.js?v=0.10.2';
+import { initAccounts } from './modules/accounts.js?v=0.10.2';
+import { initDaily, loadDaily, resetDailyIdentity } from "./modules/daily.js?v=0.10.2";
+import { closeHostedRoom, hostPublished, initHost, openHostedPlayCard } from "./modules/host.js?v=0.10.2";
+import { initLibrary, loadLibrary } from "./modules/library.js?v=0.10.2";
+import { initLocalPlay, showSetup } from "./modules/local-play.js?v=0.10.2";
+import { initPlayer } from "./modules/player.js?v=0.10.2";
+import { $, configureViewRenderers, elements, switchView } from "./modules/render.js?v=0.10.2";
+import { initStudio, renderStudio } from "./modules/studio.js?v=0.10.2";
+import { state } from "./modules/state.js?v=0.10.2";
 
 initDaily();
 initStudio();
@@ -37,4 +38,5 @@ document.querySelectorAll(".main-nav button").forEach((button) => {
 renderStudio();
 switchView("library");
 
-initAccounts({ renderStudio, changed: resetDailyIdentity, closeHostedRoom });
+initProfiles({ showSetup, closeHostedRoom });
+initAccounts({ renderStudio, changed: () => { resetDailyIdentity(); refreshProfileIdentity(); }, closeHostedRoom });

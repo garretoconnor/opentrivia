@@ -1,10 +1,10 @@
-import { buzzTimer } from "../core.mjs?v=0.10.1";
-import { state } from "./state.js?v=0.10.1";
+import { buzzTimer } from "../core.mjs?v=0.10.2";
+import { state } from "./state.js?v=0.10.2";
 
 export const $ = (selector) => document.querySelector(selector);
 
 export const elements = {
-  profile: $("#profile-view"), daily: $("#daily-view"), library: $("#library-view"), studio: $("#studio-view"), setup: $("#play-setup-view"),
+  publicProfile: $("#public-profile-view"), profile: $("#profile-view"), daily: $("#daily-view"), library: $("#library-view"), studio: $("#studio-view"), setup: $("#play-setup-view"),
   join: $("#join-view"), host: $("#host-view"), play: $("#play-view"),
   editorActions: $("#editor-actions"), exitPlay: $("#exit-play-button"), boardList: $("#board-list"),
   editorBoard: $("#editor-board"), gameName: $("#game-name"), playerCount: $("#player-count"),
@@ -34,7 +34,7 @@ export function configureViewRenderers(renderers) {
 export function switchView(view) {
   if (view === "studio" && state.game !== state.authoredGame) state.game = state.authoredGame;
   state.currentView = view;
-  for (const name of ["library", "daily", "studio", "setup", "join", "host", "play", "profile"]) {
+  for (const name of ["library", "daily", "studio", "setup", "join", "host", "play", "profile", "publicProfile"]) {
     elements[name].hidden = view !== name;
   }
   elements.editorActions.hidden = view !== "studio";
