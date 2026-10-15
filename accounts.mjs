@@ -67,6 +67,24 @@ export async function handleAccountGames(request, env) {
   return fail('Cloud game route not found.', 404);
 }
 
+// Read-only preview uses the same guest eligibility rules as the atomic claim.
+export async function previewDailyClaim(request, DB, account) {
+  if (!account) return fail('Sign in before reviewing guest scores.', 401);
+  const guest = cookieValue(request, 'opentrivia_daily');
+  const empty = { days: 0, answers: 0, overlappingDays: 0, overlappingAnswers: 0 };
+  if (!/^[a-f0-9-]{36}$/.test(guest)) return json(empty);
+  const eligible = await DB.prepare(`SELECT id FROM daily_players WHERE id = ? AND account_id IS NULL
+    AND NOT EXISTS (SELECT 1 FROM daily_claims WHERE player_id = ?)`).bind(guest, guest).first();
+  if (!eligible) return json(empty);
+  const summary = await DB.prepare(`SELECT COUNT(*) AS days,
+    SUM(EXISTS (SELECT 1 FROM daily_attempts WHERE player_id = ? AND day = g.day)) AS answers,
+    SUM(EXISTS (SELECT 1 FROM daily_runs WHERE player_id = ? AND day = g.day)) AS overlappingDays,
+    SUM(EXISTS (SELECT 1 FROM daily_attempts WHERE player_id = ? AND day = g.day)
+      AND EXISTS (SELECT 1 FROM daily_attempts WHERE player_id = ? AND day = g.day)) AS overlappingAnswers
+    FROM daily_runs g WHERE g.player_id = ?`).bind(guest, account.id, guest, account.id, guest).first();
+  return json(Object.fromEntries(Object.keys(empty).map(key => [key, Number(summary[key] || 0)])));
+}
+
 export async function claimDaily(request, DB, account) {
   if (!account) return fail('Sign in before claiming guest scores.', 401);
   if (request.headers.get('x-opentrivia-account') && request.headers.get('x-opentrivia-account') !== account.id) return fail('Your account changed. Reload to continue.', 409);

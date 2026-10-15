@@ -1,5 +1,5 @@
 import { initProfiles, refreshProfileIdentity } from './modules/profiles.js?v=0.10.5';
-import { initAccounts } from './modules/accounts.js?v=0.10.5';
+import { initAccounts } from './modules/accounts.js?v=0.10.6';
 import { initDaily, loadDaily, resetDailyIdentity } from "./modules/daily.js?v=0.10.5";
 import { closeHostedRoom, hostPublished, initHost, openHostedPlayCard } from "./modules/host.js?v=0.10.5";
 import { initLibrary, loadLibrary } from "./modules/library.js?v=0.10.5";

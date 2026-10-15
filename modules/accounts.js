@@ -9,6 +9,8 @@ let renderStudio = () => {};
 let changed = () => {};
 let authBusy = false;
 let accountReady = false;
+let browserPlan = null;
+let reviewBusy = false;
 const cacheKey = id => `opentrivia.account.${id}.draft`;
 function status(message, error = false) {
   const node = $('#save-status');
@@ -84,9 +86,12 @@ export async function publishCloudGame() {
   if (!context) throw new Error('Save this game to your account before publishing.');
   return api(`/api/account/games/${context.id}/publish`, { method: 'POST', body: JSON.stringify({ revision: context.revision }) });
 }
-async function attachAccount(account) {
+async function attachAccount(account, review = true) {
   clearTimeout(debounce);
   state.account = account; context = null;
+  browserPlan = null;
+  $('#browser-data-review').close();
+  $('#review-browser-data').hidden = true;
   if (account) {
     let cached;
     try { cached = JSON.parse(localStorage.getItem(cacheKey(account.id))); } catch { /* Start with My Games. */ }
@@ -118,6 +123,7 @@ async function attachAccount(account) {
   if (account) {
     if (context?.pending) await flushCloud();
     await loadMyGames();
+    if (review) await reviewBrowserData();
   }
 }
 export async function loadMyGames() {
@@ -127,7 +133,7 @@ export async function loadMyGames() {
   try {
     const response = await api('/api/account/games');
     if (state.account?.id !== owner) return;
-    $('#my-games-status').textContent = response.games.length ? 'Private drafts and your published games.' : 'Create a game or import a draft from this device.';
+    $('#my-games-status').textContent = response.games.length ? 'Private drafts and your published games.' : 'Create a game to save it to your account.';
     $('#my-games-list').replaceChildren(...response.games.map(game => {
       const item = document.createElement('article'); item.className = 'cloud-game';
       item.innerHTML = `<div><h3>${escapeHtml(game.title)}</h3><p>${game.published_id ? 'Published · edits stay private until republished' : 'Private draft'}</p></div><button class="button secondary" type="button">Edit game</button>`;
@@ -152,30 +158,90 @@ async function createNew() {
   setWorkingGame(createGame(), null); switchView('studio');
   persist(state.game); await flushCloud(); await loadMyGames();
 }
-async function importLocalDrafts() {
-  if (!await flushCloud()) throw new Error('Sync the current game before importing.');
-  const drafts = [];
-  const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('opentrivia.game.v0.1');
-  if (saved) drafts.push({ key: 'draft', game: normalizeGame(JSON.parse(saved)) });
-  for (const entry of localLibrary()) drafts.push({ key: entry.id, game: normalizeGame(entry.game) });
-  if (!drafts.length) { toast('There are no local drafts to import.'); return; }
-  const owner = state.account.id;
-  for (const draft of drafts) {
-    const fingerprint = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${owner}:${draft.key}:${JSON.stringify(draft.game)}`));
-    const suffix = [...new Uint8Array(fingerprint)].map(n => n.toString(16).padStart(2, '0')).join('');
-    const key = `opentrivia.import.${owner}.${suffix}`;
-    const prior = localStorage.getItem(key);
-    if (prior) continue;
-    const id = `${suffix.slice(0,8)}-${suffix.slice(8,12)}-${suffix.slice(12,16)}-${suffix.slice(16,20)}-${suffix.slice(20,32)}`;
-    try { await api(`/api/account/games/${id}`, { method: 'PUT', body: JSON.stringify({ game: draft.game, revision: 0 }) }); }
-    catch (error) {
-      if (error.status !== 409) throw error;
-      // A prior import may have succeeded before the response or local marker was saved.
-      await api(`/api/account/games/${id}`);
+async function reviewBrowserData() {
+  const owner = state.account?.id;
+  if (!owner) return;
+  try {
+    const drafts = [];
+    let unreadable = 0;
+    const add = (key, value) => {
+      try { drafts.push({ key, game: normalizeGame(value) }); }
+      catch { unreadable++; }
+    };
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('opentrivia.game.v0.1');
+      if (saved) { try { add('draft', JSON.parse(saved)); } catch { unreadable++; } }
+      for (const entry of localLibrary()) add(entry.id, entry.game);
+    } catch { unreadable++; }
+    const [daily, cloud] = await Promise.all([api('/api/daily/claim'), drafts.length ? api('/api/account/games') : Promise.resolve({ games: [] })]);
+    const existing = await Promise.all(cloud.games.map(game => api(`/api/account/games/${game.id}`)));
+    const seen = new Set(existing.map(item => JSON.stringify(normalizeGame(item.game.data))));
+    const ids = new Set(cloud.games.map(game => game.id));
+    const pending = [];
+    for (const draft of drafts) {
+      const data = JSON.stringify(draft.game);
+      const fingerprint = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${owner}:${draft.key}:${data}`));
+      const suffix = [...new Uint8Array(fingerprint)].map(n => n.toString(16).padStart(2, '0')).join('');
+      const id = `${suffix.slice(0,8)}-${suffix.slice(8,12)}-${suffix.slice(12,16)}-${suffix.slice(16,20)}-${suffix.slice(20,32)}`;
+      // Keep the original import ID scheme so previously imported, edited drafts remain recognized.
+      if (seen.has(data) || ids.has(id)) continue;
+      seen.add(data); pending.push({ ...draft, id });
     }
-    try { localStorage.setItem(key, id); } catch { /* Deterministic IDs make the import idempotent. */ }
+    if (state.account?.id !== owner) return;
+    browserPlan = { owner, drafts: pending, daily };
+    $('#review-browser-data').textContent = 'Review this browser’s history';
+    const available = pending.length > 0 || daily.days > 0;
+    $('#review-browser-data').hidden = !available && !unreadable;
+    $('#browser-data-error').textContent = unreadable ? 'Some local data could not be read. It remains on this device.' : '';
+    if (!available) {
+      if (unreadable) $('#account-error').textContent = 'Some local data could not be read. It remains on this device.';
+      return;
+    }
+    $('#browser-data-summary').textContent = `Review what will be added to ${state.account.name}. Identical games already in your account are skipped. Local originals stay on this device; other games become separate private drafts.`;
+    $('#browser-data-games').replaceChildren(...pending.map(draft => {
+      const item = document.createElement('li'); item.textContent = draft.game.name; return item;
+    }));
+    $('#browser-data-daily').textContent = daily.days ? `${daily.days} guest daily sessions: ${daily.answers - daily.overlappingAnswers} answers to add. ${daily.overlappingAnswers} existing account answers will be kept. Times for ${daily.overlappingDays} overlapping days will be voided. Guest history will move to this account.` : 'No guest daily history to add.';
+    $('#browser-data-confirm').disabled = false;
+    $('#browser-data-review').showModal();
+  } catch (error) {
+    if (state.account?.id !== owner) return;
+    browserPlan = null;
+    $('#review-browser-data').hidden = false;
+    $('#review-browser-data').textContent = 'Retry checking this browser’s history';
+    $('#account-error').textContent = `Could not check browser history: ${error.message}`;
   }
-  await loadMyGames(); toast('Local games imported as private drafts.');
+}
+async function confirmBrowserData() {
+  const plan = browserPlan;
+  if (reviewBusy || !plan || state.account?.id !== plan.owner) return;
+  reviewBusy = true;
+  $('#browser-data-confirm').disabled = true;
+  $('#browser-data-later').disabled = true;
+  try {
+    if (!await flushCloud()) throw new Error('Sync the current game before importing.');
+    for (const draft of plan.drafts) {
+      if (state.account?.id !== plan.owner) throw new Error('Your account changed. Review the history again.');
+      try { await api(`/api/account/games/${draft.id}`, { method: 'PUT', body: JSON.stringify({ game: draft.game, revision: 0 }) }); }
+      catch (error) {
+        if (error.status !== 409) throw error;
+        // A response may have been lost after a successful import. Never overwrite a cloud draft.
+        await api(`/api/account/games/${draft.id}`);
+      }
+    }
+    if (state.account?.id !== plan.owner) throw new Error('Your account changed. Review the history again.');
+    if (plan.daily.days) await api('/api/daily/claim', { method: 'POST', body: '{}' });
+    browserPlan = null;
+    $('#browser-data-review').close();
+    $('#review-browser-data').hidden = true;
+    await loadMyGames(); changed(); toast('Browser history added to your account.');
+  } catch (error) {
+    $('#browser-data-error').textContent = `${error.message} You can retry safely; completed imports will not be duplicated.`;
+  } finally {
+    reviewBusy = false;
+    $('#browser-data-confirm').disabled = false;
+    $('#browser-data-later').disabled = false;
+  }
 }
 export async function initAccounts(dependencies) {
   renderStudio = dependencies.renderStudio; changed = dependencies.changed;
@@ -276,11 +342,10 @@ export async function initAccounts(dependencies) {
     window.history?.replaceState({}, '', window.location.pathname);
     switchView('profile');
   }
-  $('#claim-daily').addEventListener('click', async () => {
-    try { const result = await api('/api/daily/claim', { method: 'POST', body: '{}' }); toast(result.claimed ? 'Guest daily history added to your account.' : 'No unclaimed guest history was found in this browser.'); changed(); }
-    catch (error) { $('#account-error').textContent = error.message; }
-  });
-  $('#import-local-games').addEventListener('click', () => importLocalDrafts().catch(error => toast(error.message, true)));
+  $('#review-browser-data').addEventListener('click', reviewBrowserData);
+  $('#browser-data-confirm').addEventListener('click', confirmBrowserData);
+  $('#browser-data-later').addEventListener('click', () => $('#browser-data-review').close());
+  $('#browser-data-review').addEventListener('cancel', event => { if (reviewBusy) event.preventDefault(); });
   $('#new-cloud-game').addEventListener('click', () => createNew().catch(error => toast(error.message, true)));
   $('#refresh-my-games').addEventListener('click', loadMyGames);
   $('#cloud-retry').addEventListener('click', () => flushCloud());
@@ -297,7 +362,7 @@ export async function initAccounts(dependencies) {
   window.addEventListener('beforeunload', event => { if (context?.pending) { event.preventDefault(); event.returnValue = ''; } });
   try {
     const response = await api('/api/account');
-    accountReady = true; $('#studio-view').inert = false; await attachAccount(response.account);
+    accountReady = true; $('#studio-view').inert = false; await attachAccount(response.account, !resetToken);
     if (resetToken) { setMode('reset'); $('#account-signed-out').hidden = false; $('#account-signed-in').hidden = true; }
   } catch (error) {
     // Never treat an unavailable session lookup as an authenticated account or silently save its edits as guest data.
