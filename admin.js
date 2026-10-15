@@ -18,8 +18,8 @@ function lock() {
   $('question-form').reset();
   questionId = crypto.randomUUID();
 }
-async function api(method = 'GET', body) {
-  const response = await fetch('/api/admin/questions', {
+async function api(method = 'GET', body, path = '/api/admin/questions') {
+  const response = await fetch(path, {
     method, cache: 'no-store', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
@@ -76,6 +76,7 @@ $('login-form').addEventListener('submit', async event => {
   token = $('token').value.trim();
   try {
     await refresh();
+    await loadFeatured();
     $('token').value = '';
     $('login').hidden = true;
     $('workspace').hidden = false;
@@ -111,4 +112,35 @@ $('question-form').addEventListener('submit', async event => {
     try { await refresh(); } catch { status('Question saved. The bank could not refresh; use Refresh to reload it.'); }
   } catch (error) { status(error.message, true); }
   finally { $('save').disabled = false; }
+});
+
+let featuredGames = [];
+function addFeatured(id = '') {
+  const row = document.createElement('div'); row.className = 'featured-row';
+  const select = document.createElement('select'); select.required = true; select.setAttribute('aria-label', 'Featured game');
+  select.append(new Option('Choose a game', ''));
+  featuredGames.forEach(game => select.append(new Option(game.title, game.id)));
+  select.value = id;
+  const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Remove';
+  remove.addEventListener('click', () => row.remove());
+  const up = document.createElement('button'); up.type = 'button'; up.textContent = '↑'; up.setAttribute('aria-label', 'Move game earlier');
+  up.addEventListener('click', () => { if (row.previousElementSibling) row.before(row.previousElementSibling); });
+  row.append(select, up, remove); $('featured-list').append(row);
+}
+async function loadFeatured() {
+  const currentSession = session;
+  const data = await api('GET', undefined, '/api/admin/featured');
+  if (currentSession !== session) return;
+  featuredGames = data.games; $('featured-list').replaceChildren();
+  data.ids.forEach(addFeatured);
+}
+$('add-featured').addEventListener('click', () => { if ($('featured-list').children.length < 50) addFeatured(); });
+$('featured-form').addEventListener('submit', async event => {
+  event.preventDefault(); const currentSession = session; event.submitter.disabled = true;
+  try {
+    const ids = [...$('featured-list').querySelectorAll('select')].map(select => select.value);
+    await api('PUT', { ids }, '/api/admin/featured');
+    if (currentSession === session) $('featured-status').textContent = `Saved ${ids.length} featured games.`;
+  } catch (error) { if (currentSession === session) $('featured-status').textContent = error.message; }
+  finally { event.submitter.disabled = false; }
 });

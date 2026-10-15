@@ -39,7 +39,7 @@ test("deployed Worker serves the entire browser module graph", async () => {
       const response = await worker.fetch(new Request(origin + path), {});
       assert.equal(response.status, 200);
       const admin = await response.text();
-      assert.match(admin, /Daily question bank/);
+      assert.match(admin, /Trivia admin/);
       pending.push(new URL(admin.match(/<script\b[^>]*type="module"[^>]*src="([^"]+)"/)[1], origin).href);
     }
     const adminCss = await worker.fetch(new Request(origin + '/admin.css'), {});

@@ -1,4 +1,4 @@
-import { applyRowValues, createGame, normalizeGame } from "../core.mjs?v=0.10.5";
+import { applyRowValues, createGame, normalizeGame } from "../core.mjs?v=0.11.0";
 
 export const STORAGE_KEY = "opentrivia.game.v0.2";
 export const LEGACY_STORAGE_KEY = "opentrivia.game.v0.1";
@@ -7,6 +7,9 @@ export const VOTER_KEY = "opentrivia.voter.v0.2";
 
 export function loadGuestGame() {
   try {
+    const active = localStorage.getItem('opentrivia.guest.drafts.active');
+    const drafts = JSON.parse(localStorage.getItem('opentrivia.guest.drafts') || '{}');
+    if (active && drafts[active]) return normalizeGame(drafts[active]);
     const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
     return saved ? normalizeGame(JSON.parse(saved)) : createGame();
   } catch {

@@ -218,3 +218,5 @@ WHEN NEW.username IS NOT NULL AND NEW.name != NEW.username
 BEGIN SELECT RAISE(ABORT, 'Username must match name'); END;
 CREATE TRIGGER username_daily_name AFTER UPDATE OF name ON auth_users
 BEGIN UPDATE daily_players SET name = NEW.name WHERE account_id = NEW.id; END;
+
+CREATE TABLE IF NOT EXISTS featured_config (id INTEGER PRIMARY KEY CHECK (id = 1), game_ids TEXT NOT NULL DEFAULT '[]');

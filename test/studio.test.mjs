@@ -35,24 +35,32 @@ globalThis.Option = class extends Element { constructor(text, value) { super(); 
 const storage = new Map();
 let failSave = false;
 globalThis.localStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => { if (failSave) throw new Error('Quota exceeded'); storage.set(key, value); } };
-const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.10.5');
+const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.11.0');
 const { initStudio, renderStudio, editStudioClue } = await import('../modules/studio.js');
 initStudio();
 function reset() { failSave = false; state.game = createGame(); state.authoredGame = state.game; state.selectedBoard = 0; renderStudio(); saveGame(); }
 const clue = () => state.game.boards[0].columns[0].clues[0];
 
-test('dirty dismissal can keep editing or discard without committing', async () => {
+test('clue input autosaves and dismissal preserves the edits', async () => {
   reset(); editStudioClue(0, 0, 0);
-  const before = storage.get(STORAGE_KEY);
-  get('#clue-text').value = 'Unsaved clue';
-  let pending = get('#close-clue-button').fire('click');
-  assert.equal(get('#studio-confirm').open, true);
-  get('#studio-confirm').close('cancel'); await pending;
-  assert.equal(get('#clue-dialog').open, true);
-  pending = get('#clue-dialog').fire('cancel');
-  get('#studio-confirm').close('accept'); await pending;
+  get('#clue-text').value = 'Autosaved clue';
+  await get('#clue-form').fire('input');
+  assert.equal(JSON.parse(storage.get(STORAGE_KEY)).boards[0].columns[0].clues[0].clue, 'Autosaved clue');
+  await get('#close-clue-button').fire('click');
   assert.equal(get('#clue-dialog').open, false);
-  assert.equal(storage.get(STORAGE_KEY), before);
+  assert.equal(clue().clue, 'Autosaved clue');
+});
+
+test('failed autosave retains clue input and blocks dismissal until retry succeeds', async () => {
+  reset(); editStudioClue(0, 0, 0); failSave = true;
+  get('#clue-text').value = 'Keep this edit';
+  await get('#clue-form').fire('input');
+  await get('#close-clue-button').fire('click');
+  assert.equal(get('#clue-dialog').open, true);
+  failSave = false;
+  await get('#close-clue-button').fire('click');
+  assert.equal(get('#clue-dialog').open, false);
+  assert.equal(JSON.parse(storage.get(STORAGE_KEY)).boards[0].columns[0].clues[0].clue, 'Keep this edit');
 });
 
 test('save and next persists the clue and advances editing', async () => {
@@ -166,22 +174,25 @@ test('pointer dragging moves only within the original column', async () => {
 test('round titles persist through normalization and appear in round navigation', async () => {
   reset();
   get('#round-title').value = 'Science & Nature';
-  await get('#round-title').fire('change');
+  await get('#round-title').fire('input');
   assert.equal(state.game.boards[0].title, 'Science & Nature');
   assert.match(get('#board-list').children[0].innerHTML, /Science &amp; Nature/);
   const { normalizeGame } = await import('../core.mjs');
   assert.equal(normalizeGame(JSON.parse(storage.get(STORAGE_KEY))).boards[0].title, 'Science & Nature');
   failSave = true;
   get('#round-title').value = 'Unsaved title';
-  await get('#round-title').fire('change');
-  assert.equal(state.game.boards[0].title, 'Science & Nature');
+  await get('#round-title').fire('input');
+  assert.equal(state.game.boards[0].title, 'Unsaved title');
+  assert.equal(JSON.parse(storage.get(STORAGE_KEY)).boards[0].title, 'Science & Nature');
   failSave = false;
+  saveGame();
+  assert.equal(JSON.parse(storage.get(STORAGE_KEY)).boards[0].title, 'Unsaved title');
 });
 
 test('preview plays the selected round in isolation and restores the editor on exit', async () => {
   reset();
-  const { initLocalPlay, previewRound } = await import('../modules/local-play.js?v=0.10.5');
-  const { switchView } = await import('../modules/render.js?v=0.10.5');
+  const { initLocalPlay, previewRound } = await import('../modules/local-play.js?v=0.11.0');
+  const { switchView } = await import('../modules/render.js?v=0.11.0');
   const { createBossBoard } = await import('../core.mjs');
   initLocalPlay({});
   state.game.boards.push(createBossBoard());

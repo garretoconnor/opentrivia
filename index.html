@@ -7,9 +7,9 @@
     <meta name="description" content="Create, discover, and host custom trivia games with friends." />
     <title>OpenTrivia — Make a game night</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=0.5.5" />
-    <link rel="stylesheet" href="studio.css?v=0.5.4" />
-    <link rel="stylesheet" href="accounts.css?v=0.10.5" />
+    <link rel="stylesheet" href="styles.css?v=0.11.0" />
+    <link rel="stylesheet" href="studio.css?v=0.11.0" />
+    <link rel="stylesheet" href="accounts.css?v=0.11.0" />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -27,11 +27,11 @@
             <span class="nav-label" aria-hidden="true">Explore</span>
           </button>
           <button type="button" data-view="daily" aria-label="Daily trivia">
-            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 10h18m-14 5 3 3 6-5"/></svg>
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 10h18"/><path id="daily-completed-check" d="m7 15 3 3 6-5" hidden/></svg>
             <span class="nav-label" aria-hidden="true">Daily trivia</span>
           </button>
           <button type="button" data-view="studio" aria-label="Create">
-            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 5 5 5M4 20l5-1L21 7a2.1 2.1 0 0 0-5-5L4 14Z"/></svg>
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 4 5 5" stroke-linecap="butt"/><path d="M4 20l5-1L21 7a2.1 2.1 0 0 0-5-5L4 14Z"/></svg>
             <span class="nav-label" aria-hidden="true">Create</span>
           </button>
           <button type="button" data-view="join" aria-label="Join">
@@ -50,17 +50,13 @@
       <button class="button quiet" id="exit-play-button" type="button" hidden>Exit game</button>
       </div>
       <section id="library-view" class="library-view" aria-labelledby="library-title">
-        <div class="library-hero">
+        <div class="library-hero" id="featured-carousel" role="region" aria-roledescription="carousel" aria-label="Featured games">
           <div>
             <h1 id="library-title">Find tonight's trivia game.</h1>
             <p>Choose from community favorites to play together.</p>
           </div>
-          <button class="button primary" id="hero-create-button" type="button">Create a game</button>
         </div>
-      <section id="my-games-panel" class="account-games-panel" hidden aria-labelledby="my-games-title">
-        <div class="library-heading"><div><h2 id="my-games-title">My Games</h2><p id="my-games-status" role="status"></p></div><div class="account-actions"><button class="button quiet" id="refresh-my-games" type="button">Refresh</button><button class="button primary" id="new-cloud-game" type="button">New game</button></div></div>
-        <div id="my-games-list" class="cloud-games-list"></div>
-      </section>
+
 
         <div class="library-heading">
           <div><h2>Public games</h2><p id="library-status">Loading the library…</p></div>
@@ -72,18 +68,18 @@
       <section id="daily-view" class="daily-view" hidden aria-labelledby="daily-title">
         <div class="library-heading">
           <div><h1 id="daily-title">Daily trivia</h1><p id="daily-date"></p></div>
-          <button type="button" class="button quiet" id="daily-refresh">Refresh</button>
+
         </div>
         <p>Everyone plays the same question. A new question arrives at 2 AM EST (07:00 UTC), year-round.</p>
         <div id="daily-error" role="alert"></div>
         <article class="daily-card" aria-labelledby="daily-topic">
           <p id="daily-status" role="status">Loading today’s question…</p>
-          <p class="eyebrow" id="daily-topic"></p>
+          <h2 id="daily-topic"></h2>
           <img class="play-clue-image" id="daily-image" alt="Image for today's clue" hidden />
           <button type="button" class="button primary" id="daily-play" hidden>Play</button>
           <p id="daily-timer" hidden></p>
           <h2 id="daily-question" hidden></h2>
-          <p id="daily-identity" class="muted"></p>
+
           <form id="daily-answer-form" hidden>
             <label class="field-label" for="daily-name">Leaderboard name</label>
             <input id="daily-name" autocomplete="username" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]{3,30}" required />
@@ -94,7 +90,7 @@
           </form>
           <div id="daily-result" role="status" hidden></div>
         </article>
-        <p class="muted">Fastest correct answers with valid times rank first. Season rankings use average completion time. Equal times share a rank; the top 100 players are shown.</p>
+        <div class="ranking-info"><button type="button" class="button quiet" aria-label="About leaderboard rankings" aria-describedby="ranking-help">ⓘ</button><span id="ranking-help" role="tooltip">Fastest correct answers with valid times rank first. Season rankings use average completion time. Equal times share a rank; the top 100 players are shown.</span></div>
         <div class="daily-leaderboards">
           <section class="daily-card" aria-labelledby="daily-board-title"><h2 id="daily-board-title">Today’s leaderboard</h2><div id="daily-board"></div></section>
           <section class="daily-card" aria-labelledby="daily-season-title"><h2 id="daily-season-title">Season leaderboard</h2><div id="season-board"></div></section>
@@ -102,6 +98,11 @@
       </section>
 
       <section id="studio-view" class="studio-view" hidden aria-labelledby="studio-title">
+              <section id="my-games-panel" class="account-games-panel" hidden aria-labelledby="my-games-title">
+        <div class="library-heading"><div><h2 id="my-games-title">My Games</h2><p id="my-games-status" role="status"></p></div><div class="account-actions"><button class="button quiet" id="refresh-my-games" type="button">Refresh</button><button class="button primary" id="new-cloud-game" type="button">New game</button></div></div>
+        <label class="draft-picker-label" for="draft-picker">Switch draft <select id="draft-picker" aria-label="Switch draft"></select></label>
+        <details><summary>All my games</summary><div id="my-games-list" class="cloud-games-list"></div></details>
+      </section>
         <p id="cloud-error" class="account-error" role="status"></p>
         <div id="cloud-conflict" class="cloud-conflict" hidden><p>This game changed on another device. Keep your edits as a new game, or open the latest cloud version.</p><button id="cloud-copy" class="button primary" type="button">Save as new game</button><button id="cloud-reload" class="button secondary" type="button">Open cloud version</button></div>
         <div class="studio-toolbar"><div class="studio-document"><label for="game-name">GAME STUDIO</label><input id="game-name" maxlength="80" aria-label="Game name" value="Untitled game" /><span id="save-status" role="status">Saved on this device</span></div>      <div class="top-actions" id="editor-actions" hidden>
@@ -203,7 +204,7 @@
           <select id="difficulty" class="compact-select">
             <option value="easy">● Easy</option><option value="medium">■ Medium</option><option value="hard">◆ Hard</option>
           </select>
-          <label class="adult-content-option"><input id="adult-content" type="checkbox" /> Contains 18+ content</label><p>Marked games display an 18+ label in the public library.</p><label class="field-label" for="player-count">Players</label>
+          <label class="adult-content-option"><input id="anonymous-game" type="checkbox" /> Publish anonymously (hide my byline)</label><label class="adult-content-option"><input id="adult-content" type="checkbox" /> Contains 18+ content</label><p>Marked games display an 18+ label in the public library.</p><label class="field-label" for="player-count">Players</label>
           <select id="player-count" class="compact-select"></select>
           <label class="field-label" for="hero-image-input">Hero image</label>
           <label class="image-upload" for="hero-image-input">
@@ -219,7 +220,7 @@
 <dialog id="clue-dialog" class="studio-dialog clue-dialog" aria-labelledby="clue-title">
       <form method="dialog" id="clue-form">
         <div class="dialog-topline"><div><div class="eyebrow" id="clue-location">Topic · 200</div><h2 id="clue-title">Edit clue</h2></div><button class="icon-button" type="button" id="close-clue-button" aria-label="Close">×</button></div>
-        <div class="clue-fields"><p id="clue-save-status" role="status">Changes save when you select Save clue.</p>
+        <div class="clue-fields"><p id="clue-save-status" role="status">Changes save automatically.</p>
         <label class="field-label" for="clue-text">Clue shown to players</label><textarea id="clue-text" name="clue" rows="4" placeholder="e.g. This planet is famous for its rings"></textarea>
         <label class="field-label" for="clue-answer">Correct response</label><textarea id="clue-answer" name="answer" rows="3" placeholder="e.g. What is Saturn?"></textarea>
         <details><summary>Accepted answers and explanation</summary>
@@ -229,7 +230,7 @@
         <details id="clue-attachment"><summary>Image attachment (optional)</summary><label class="field-label" for="clue-image-input">Choose an image</label>
         <div class="inline-upload"><input id="clue-image-input" type="file" accept="image/*" /><button class="button quiet" id="remove-clue-image" type="button" hidden>Remove</button></div>
         <img id="clue-image-preview" class="clue-image-preview" alt="Clue preview" hidden />
-        </details></div><div class="dialog-actions"><button class="button quiet" value="cancel" type="button" id="cancel-clue-button">Cancel</button><button class="button primary" value="save" type="submit">Save clue</button><button class="button secondary" value="next" type="submit" id="save-next-button">Save &amp; next</button></div>
+        </details></div><div class="dialog-actions"><button class="button quiet" value="cancel" type="button" id="cancel-clue-button">Done</button><button class="button primary" value="save" type="submit">Save clue</button><button class="button secondary" value="next" type="submit" id="save-next-button">Save &amp; next</button></div>
       </form>
     </dialog>
 
@@ -241,6 +242,6 @@
     <dialog id="card-dialog" class="dialog play-card-dialog"><div id="card-dialog-content"></div></dialog>
     <input id="file-input" type="file" accept="application/json,.json" hidden />
     <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
-    <script type="module" src="app.js?v=0.10.6"></script>
+    <script type="module" src="app.js?v=0.11.0"></script>
   </body>
 </html>

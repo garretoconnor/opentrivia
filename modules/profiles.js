@@ -1,7 +1,7 @@
-import { api } from './data.js?v=0.10.5';
-import { $, escapeHtml, switchView } from './render.js?v=0.10.5';
-import { state } from './state.js?v=0.10.5';
-import { difficultySymbol, normalizeGame } from '../core.mjs?v=0.10.5';
+import { api } from './data.js?v=0.11.0';
+import { $, escapeHtml, switchView } from './render.js?v=0.11.0';
+import { state } from './state.js?v=0.11.0';
+import { difficultySymbol, normalizeGame } from '../core.mjs?v=0.11.0';
 
 let generation = 0, dependencies;
 const profileURL = user => user.username ? `/@${encodeURIComponent(user.username)}` : `/#profile=${encodeURIComponent(user.id)}`;
@@ -162,7 +162,6 @@ export function refreshProfileIdentity() {
   $('#own-profile-content').replaceChildren();
   $('#public-profile-content').replaceChildren();
   if (location.pathname.startsWith('/@') || location.hash.startsWith('#profile=')) openHash();
-  else if (state.account?.needsUsername) switchView('profile');
   else if (state.account) load(state.account.id, $('#own-profile-content'));
 }
 export function initProfiles(deps) {

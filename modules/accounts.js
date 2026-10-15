@@ -1,10 +1,14 @@
-import { createGame, normalizeGame } from '../core.mjs?v=0.10.5';
-import { api } from './data.js?v=0.10.5';
-import { $, escapeHtml, switchView, toast } from './render.js?v=0.10.5';
-import { configurePersistence, loadGuestGame, localLibrary, state, STORAGE_KEY } from './state.js?v=0.10.5';
+import { createGame, normalizeGame } from '../core.mjs?v=0.11.0';
+import { api } from './data.js?v=0.11.0';
+import { $, escapeHtml, switchView, toast } from './render.js?v=0.11.0';
+import { configurePersistence, loadGuestGame, localLibrary, state, STORAGE_KEY } from './state.js?v=0.11.0';
 
 let context = null;
 let debounce;
+let switching = false;
+let guestId;
+const guestDraftsKey = "opentrivia.guest.drafts";
+function guestDrafts() { return JSON.parse(localStorage.getItem(guestDraftsKey) || "{}"); }
 let renderStudio = () => {};
 let changed = () => {};
 let authBusy = false;
@@ -19,7 +23,12 @@ function status(message, error = false) {
   $('#cloud-conflict').hidden = !context?.conflict;
 }
 function cache(ctx) {
-  try { localStorage.setItem(cacheKey(ctx.owner), JSON.stringify({ id: ctx.id, revision: ctx.revision, data: ctx.data, saved: ctx.saved, pending: ctx.pending })); return true; }
+  try {
+    const value = JSON.stringify({ id: ctx.id, revision: ctx.revision, data: ctx.data, saved: ctx.saved, pending: ctx.pending });
+    localStorage.setItem(`${cacheKey(ctx.owner)}.${ctx.id}`, value);
+    if (context === ctx) localStorage.setItem(cacheKey(ctx.owner), value);
+    return true;
+  }
   catch { return false; }
 }
 function newContext(data, info = {}) {
@@ -43,10 +52,28 @@ function setWorkingGame(data, ctx) {
   if (editingAuthored) renderStudio();
   refreshStatus();
 }
+function updateDraftPicker(id, game) {
+  const picker = $('#draft-picker');
+  let option = [...picker.children].find(item => item.value === id);
+  if (!option) { option = document.createElement('option'); option.value = id; picker.append(option); }
+  option.textContent = game.name || 'Untitled game';
+  picker.value = id;
+}
 function persist(game) {
   if (!accountReady) { status('Checking account — please wait before editing', true); return false; }
-  if (!state.account) return null;
+  if (!state.account) {
+    try {
+      guestId ||= localStorage.getItem(`${guestDraftsKey}.active`) || crypto.randomUUID();
+      const drafts = guestDrafts(); drafts[guestId] = game;
+      localStorage.setItem(guestDraftsKey, JSON.stringify(drafts));
+      localStorage.setItem(`${guestDraftsKey}.active`, guestId);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(game));
+      updateDraftPicker(guestId, game);
+      status('Saved on this device'); return true;
+    } catch { status('Not saved — device storage unavailable', true); return false; }
+  }
   if (!context) context = newContext(game);
+  updateDraftPicker(context.id, game);
   context.data = JSON.stringify(game);
   context.pending = context.data !== context.saved;
   const local = cache(context);
@@ -116,7 +143,7 @@ async function attachAccount(account, review = true) {
   $('#account-signed-out').hidden = Boolean(account);
   $('#account-signed-in').hidden = !account;
   $('#account-label').textContent = account ? account.name : '';
-  $('#my-games-panel').hidden = !account;
+  $('#my-games-panel').hidden = false;
   $('#studio-storage-help').textContent = account ? 'Changes save automatically to your account. Drafts stay private until you publish.' : 'Changes save automatically on this device. Sign in to save games to your account.';
   $('#cloud-error').textContent = '';
   changed();
@@ -124,16 +151,20 @@ async function attachAccount(account, review = true) {
     if (context?.pending) await flushCloud();
     await loadMyGames();
     if (review) await reviewBrowserData();
-  }
+  } else { guestId = null; persist(state.authoredGame); await loadMyGames(); }
 }
 export async function loadMyGames() {
-  if (!state.account) return;
-  const owner = state.account.id;
+  const owner = state.account?.id;
   $('#my-games-status').textContent = 'Loading your games…';
   try {
-    const response = await api('/api/account/games');
+    const response = state.account ? await api('/api/account/games') : { games: Object.entries(guestDrafts()).map(([id, game]) => ({ id, title: game.name })) };
     if (state.account?.id !== owner) return;
-    $('#my-games-status').textContent = response.games.length ? 'Private drafts and your published games.' : 'Create a game to save it to your account.';
+    $('#my-games-status').textContent = !state.account ? 'Drafts saved on this device.' : response.games.length ? 'Private drafts and your published games.' : 'Create a game to save it to your account.';
+    const picker = $('#draft-picker');
+    picker.replaceChildren(...response.games.map(game => {
+      const option = document.createElement('option'); option.value = game.id; option.textContent = game.title; return option;
+    }));
+    picker.value = context?.id || guestId || '';
     $('#my-games-list').replaceChildren(...response.games.map(game => {
       const item = document.createElement('article'); item.className = 'cloud-game';
       item.innerHTML = `<div><h3>${escapeHtml(game.title)}</h3><p>${game.published_id ? 'Published · edits stay private until republished' : 'Private draft'}</p></div><button class="button secondary" type="button">Edit game</button>`;
@@ -142,21 +173,49 @@ export async function loadMyGames() {
     }));
   } catch (error) { $('#my-games-status').textContent = error.message; }
 }
-async function openGame(id, discard = false) {
-  if (!discard && !await flushCloud()) { toast('Sync your changes or save them as a new game before opening another game.', true); return; }
+export async function openGame(id, discard = false) {
+  if (switching || !discard && state.account && context?.id === id) return;
+  switching = true;
+  $('#studio-view').inert = true;
   try {
-    const owner = state.account?.id;
+    if (!state.account) {
+      if (!persist(state.authoredGame)) throw new Error('Could not save this draft. Free device storage before switching.');
+      const data = guestDrafts()[id];
+      if (!data) return;
+      guestId = id;
+      setWorkingGame(data, null);
+      persist(state.authoredGame);
+      switchView('studio');
+      return;
+    }
+    if (!discard && !await flushCloud()) throw new Error('Sync your changes or save them as a new game before opening another game.');
+    const owner = state.account.id;
     const response = await api(`/api/account/games/${id}`);
     if (owner !== state.account?.id) return;
+    // Attachments may finish while the read is in progress. Persist those too.
+    if (!discard && !await flushCloud()) throw new Error('Your changes have not synced. Retry before switching drafts.');
     const data = normalizeGame(response.game.data);
-    setWorkingGame(data, newContext(data, response.game)); cache(context); switchView('studio');
+    setWorkingGame(data, newContext(data, response.game));
+    cache(context);
+    switchView('studio');
     $('#cloud-error').textContent = '';
   } catch (error) { toast(error.message, true); }
+  finally { switching = false; $('#studio-view').inert = false; }
 }
 async function createNew() {
-  if (!await flushCloud()) { toast('Sync your changes or save them as a new game first.', true); return; }
-  setWorkingGame(createGame(), null); switchView('studio');
-  persist(state.game); await flushCloud(); await loadMyGames();
+  if (switching) return;
+  switching = true;
+  $('#studio-view').inert = true;
+  try {
+    if (!state.account && !persist(state.authoredGame)) throw new Error('Save this draft before creating another.');
+    if (!await flushCloud()) throw new Error('Sync your changes or save them as a new game first.');
+    guestId = crypto.randomUUID();
+    setWorkingGame(createGame(), null);
+    switchView('studio');
+    persist(state.game);
+    await flushCloud();
+    await loadMyGames();
+  } finally { switching = false; $('#studio-view').inert = false; }
 }
 async function reviewBrowserData() {
   const owner = state.account?.id;
@@ -171,6 +230,7 @@ async function reviewBrowserData() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('opentrivia.game.v0.1');
       if (saved) { try { add('draft', JSON.parse(saved)); } catch { unreadable++; } }
+      for (const [id, game] of Object.entries(guestDrafts())) add(id, game);
       for (const entry of localLibrary()) add(entry.id, entry.game);
     } catch { unreadable++; }
     const [daily, cloud] = await Promise.all([api('/api/daily/claim'), drafts.length ? api('/api/account/games') : Promise.resolve({ games: [] })]);
@@ -347,6 +407,7 @@ export async function initAccounts(dependencies) {
   $('#browser-data-later').addEventListener('click', () => $('#browser-data-review').close());
   $('#browser-data-review').addEventListener('cancel', event => { if (reviewBusy) event.preventDefault(); });
   $('#new-cloud-game').addEventListener('click', () => createNew().catch(error => toast(error.message, true)));
+  $('#draft-picker').addEventListener('change', event => openGame(event.target.value));
   $('#refresh-my-games').addEventListener('click', loadMyGames);
   $('#cloud-retry').addEventListener('click', () => flushCloud());
   $('#cloud-copy').addEventListener('click', async () => {
@@ -357,7 +418,7 @@ export async function initAccounts(dependencies) {
   $('#cloud-reload').addEventListener('click', () => {
     if (context && window.confirm('Discard this device’s pending edits and open the latest cloud version? You can choose Save as new game to keep both versions instead.')) openGame(context.id, true);
   });
-  document.addEventListener('opentrivia:view', () => { if (state.currentView === 'library' && state.account) loadMyGames(); });
+  document.addEventListener('opentrivia:view', () => { if (state.currentView === 'studio') loadMyGames(); });
   window.addEventListener('online', () => flushCloud());
   window.addEventListener('beforeunload', event => { if (context?.pending) { event.preventDefault(); event.returnValue = ''; } });
   try {

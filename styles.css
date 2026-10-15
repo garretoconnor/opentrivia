@@ -1097,3 +1097,32 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .account-avatar { display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border-radius: 50%; background: #d9f5fa; border: 1px solid #7fc5d5; color: #075777; font-size: .8rem; }
 .account-avatar svg { width: 22px; height: 22px; }
 .sidebar-account .nav-label { overflow: hidden; text-overflow: ellipsis; }
+
+/* Shared card metadata and featured games. */
+.game-badges { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.game-badges .difficulty, .game-badges .adult-badge { display: inline-flex; align-items: center; gap: 5px; min-height: 26px; padding: 4px 9px; margin: 0; border-radius: 6px; font-size: 12px; line-height: 18px; font-weight: 700; }
+.game-byline { margin: 6px 0 14px; font-size: 14px; }
+.game-byline a { color: inherit; text-underline-offset: 3px; }
+#featured-carousel { display: block; padding: 28px; }
+#featured-slide { display: flex; align-items: center; gap: 32px; }
+.featured-image { width: 45%; max-height: 300px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 14px; }
+.featured-copy { flex: 1; min-width: 0; }
+.featured-copy h1 { overflow-wrap: anywhere; }
+.featured-copy .game-card-actions { margin-top: 20px; }
+.carousel-controls { display: flex; justify-content: flex-end; align-items: center; gap: 16px; margin-top: 20px; }
+#daily-topic { font-size: clamp(24px, 3vw, 34px); line-height: 1.2; margin: 0 0 24px; }
+#daily-completed-check[hidden] { display: none; }
+.ranking-info { position: relative; display: flex; justify-content: flex-end; margin: 12px 0; }
+#ranking-help { display: none; position: absolute; z-index: 2; right: 0; bottom: 100%; width: min(340px, 85vw); padding: 16px; border-radius: 10px; background: #17252e; color: white; box-shadow: 0 4px 20px #0003; }
+.ranking-info:hover #ranking-help, .ranking-info:focus-within #ranking-help { display: block; }
+.draft-picker-label { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+#draft-picker { max-width: 100%; min-width: 180px; }
+@media (max-width: 650px) { #featured-slide { flex-direction: column; align-items: stretch; gap: 20px; } .featured-image { width: 100%; } #featured-carousel { padding: 20px; } }
+
+.draft-picker-label { white-space: nowrap; }
+#my-games-panel { margin-bottom: 20px; }
+#featured-carousel { overflow: clip; }
+#featured-carousel > div { max-width: none; }
+#featured-slide { min-height: 240px; }
+#featured-carousel .game-card-actions { display: flex; flex-wrap: wrap; justify-content: flex-start; }
+#featured-carousel .game-card-actions .button { flex: 0 1 auto; min-width: 140px; }

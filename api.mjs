@@ -1,6 +1,6 @@
 import { handleDaily } from "./daily.mjs";
 import { handleAdmin } from "./admin.mjs";
-import { normalizeGame } from "./core.mjs?v=0.6.0";
+import { normalizeGame } from "./core.mjs?v=0.11.0";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 const ROOM_TTL_MS = 6 * 60 * 60 * 1000;
@@ -24,6 +24,7 @@ function gameSummary(row) {
   return {
     id: row.id,
     title: row.title,
+    creator_username: row.creator_username || null,
     hero_image: row.hero_image,
     difficulty: row.difficulty,
     adult_content: Boolean(row.adult_content ?? (row.game_json ? JSON.parse(row.game_json).adult_content : false)),
@@ -56,14 +57,20 @@ export async function handleApi(request, env) {
     }
     if (path === "/api/admin" || path.startsWith("/api/admin/")) return await handleAdmin(request, env);
     if (path === "/api/daily" || path.startsWith("/api/daily/")) return await handleDaily(request, env);
+    if (path === "/api/featured" && request.method === "GET") {
+      if (!env.DB) return error("The public library is not configured.", 503);
+      const row = await env.DB.prepare("SELECT game_ids FROM featured_config WHERE id = 1").first();
+      return json({ ids: row ? JSON.parse(row.game_ids) : [] });
+    }
     if (path === "/api/games" && request.method === "GET") {
       if (!env.DB) return error("The public library is not configured.", 503);
       const result = await env.DB.prepare(`
         SELECT g.id, g.title, g.hero_image, g.difficulty,
           COALESCE(json_extract(g.game_json, '$.adult_content'), 0) AS adult_content,
+          CASE WHEN COALESCE(json_extract(g.game_json, '$.anonymous'), 0) = 0 THEN u.username ELSE NULL END AS creator_username,
           COALESCE(SUM(v.value), 0) AS score,
           (SELECT COUNT(*) FROM plays p WHERE p.game_id = g.id AND p.played_at >= datetime('now', '-7 days')) AS weekly_plays
-        FROM games g LEFT JOIN votes v ON v.game_id = g.id
+        FROM games g LEFT JOIN auth_users u ON u.id = g.account_id LEFT JOIN votes v ON v.game_id = g.id
         GROUP BY g.id
         ORDER BY weekly_plays DESC, score DESC, g.created_at DESC
       `).all();

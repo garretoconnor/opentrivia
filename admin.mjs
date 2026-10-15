@@ -59,6 +59,22 @@ export async function handleAdmin(request, env) {
   const origin = request.headers.get('origin');
   if (origin && origin !== url.origin) return fail('Invalid request origin.', 403);
   if (!env.DB) return fail('The daily question bank is not configured.', 503);
+  if (url.pathname === '/api/admin/featured') {
+    if (request.method === 'GET') {
+      const games = await env.DB.prepare('SELECT id, title FROM games ORDER BY title, id').all();
+      const config = await env.DB.prepare('SELECT game_ids FROM featured_config WHERE id = 1').first();
+      return json({ games: games.results, ids: config ? JSON.parse(config.game_ids) : [] });
+    }
+    if (request.method !== 'PUT') return fail('Method not allowed.', 405);
+    let body;
+    try { const text = await request.text(); if (text.length > 10000) return fail('Selection too large.', 413); body = JSON.parse(text); }
+    catch { return fail('Invalid JSON.'); }
+    const ids = body?.ids;
+    if (!Array.isArray(ids) || ids.length > 50 || ids.some(id => typeof id !== 'string' || !/^[a-f0-9-]{36}$/i.test(id)) || new Set(ids).size !== ids.length) return fail('Select up to 50 distinct games.');
+    for (const id of ids) if (!await env.DB.prepare('SELECT id FROM games WHERE id = ?').bind(id).first()) return fail('A selected game is no longer public.', 409);
+    await env.DB.prepare('INSERT INTO featured_config (id, game_ids) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET game_ids = excluded.game_ids').bind(JSON.stringify(ids)).run();
+    return json({ ids });
+  }
   if (url.pathname !== '/api/admin/questions') return fail('Admin route not found.', 404);
   if (request.method === 'GET') {
     const questions = await env.DB.prepare(`SELECT q.id, q.topic, q.clue, q.enabled, q.queue_order,

@@ -70,6 +70,7 @@ export function createGame() {
     difficulty: "medium",
     hero_image: "",
     adult_content: false,
+    anonymous: false,
     row_values: defaultRowValues(),
     boards,
   };
@@ -167,6 +168,7 @@ export function normalizeGame(input) {
   if (!Number.isInteger(game.size) || game.size < 1) throw new Error("game.size must be an integer of at least 1.");
   if (!Array.isArray(game.boards)) throw new Error("game.boards must be an array.");
   if (game.boards.length !== game.size) throw new Error(`game.boards must contain exactly ${game.size} boards.`);
+  if (game.anonymous !== undefined && typeof game.anonymous !== "boolean") throw new Error("game.anonymous must be a boolean.");
   if (game.adult_content !== undefined && typeof game.adult_content !== "boolean") throw new Error("game.adult_content must be a boolean.");
   const rowValues = game.row_values === undefined ? defaultRowValues() : game.row_values;
   if (!Array.isArray(rowValues) || rowValues.length < 1 || rowValues.length > LIMITS.maxRows || rowValues.some(value => !Number.isSafeInteger(value) || value < 1)) {
@@ -195,6 +197,7 @@ export function normalizeGame(input) {
     difficulty,
     hero_image: game.hero_image ?? "",
     adult_content: game.adult_content ?? false,
+    anonymous: game.anonymous ?? false,
     row_values: values,
     boards,
   });
