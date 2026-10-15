@@ -188,3 +188,33 @@ DROP TABLE account_games_username_backup;
 DROP TABLE auth_sessions_username_backup;
 DROP TABLE auth_credentials_username_backup;
 PRAGMA defer_foreign_keys = OFF;
+CREATE TABLE profiles (
+  account_id TEXT PRIMARY KEY REFERENCES auth_users(id) ON DELETE CASCADE,
+  bio TEXT NOT NULL DEFAULT '' CHECK(length(bio) <= 2000),
+  picture TEXT NOT NULL DEFAULT '',
+  visibility TEXT NOT NULL DEFAULT 'public' CHECK(visibility IN ('public','private','friends')),
+  stats_visibility TEXT NOT NULL DEFAULT 'public' CHECK(stats_visibility IN ('public','private','friends')),
+  games_visibility TEXT NOT NULL DEFAULT 'public' CHECK(games_visibility IN ('public','private','friends')),
+  friends_visibility TEXT NOT NULL DEFAULT 'private' CHECK(friends_visibility IN ('public','private','friends'))
+);
+CREATE TABLE friendships (
+  requester TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+  recipient TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted')),
+  PRIMARY KEY(requester, recipient),
+  CHECK(requester != recipient)
+);
+CREATE UNIQUE INDEX friendship_pair ON friendships(min(requester,recipient),max(requester,recipient));
+CREATE INDEX friendship_recipient ON friendships(recipient,status);
+-- Existing accounts choose a username on their next profile visit.
+ALTER TABLE auth_users ADD COLUMN username TEXT COLLATE NOCASE
+  CHECK(username IS NULL OR (length(username) BETWEEN 3 AND 30 AND username NOT GLOB '*[^a-z0-9_]*'));
+CREATE UNIQUE INDEX auth_users_username_unique ON auth_users(username) WHERE username IS NOT NULL;
+CREATE TRIGGER username_matches_name_insert BEFORE INSERT ON auth_users
+WHEN NEW.username IS NOT NULL AND NEW.name != NEW.username
+BEGIN SELECT RAISE(ABORT, 'Username must match name'); END;
+CREATE TRIGGER username_matches_name_update BEFORE UPDATE ON auth_users
+WHEN NEW.username IS NOT NULL AND NEW.name != NEW.username
+BEGIN SELECT RAISE(ABORT, 'Username must match name'); END;
+CREATE TRIGGER username_daily_name AFTER UPDATE OF name ON auth_users
+BEGIN UPDATE daily_players SET name = NEW.name WHERE account_id = NEW.id; END;

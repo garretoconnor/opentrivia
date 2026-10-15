@@ -199,9 +199,15 @@ test('a shared account session provisions exactly one daily identity under simul
   assert.equal(c.DB.sqlite.prepare('SELECT COUNT(*) AS n FROM daily_players WHERE account_id = ?').get(ada.account.id).n, 1);
 });
 
-test('display names are public labels and can be shared by different email accounts', async () => {
-  const c = setup(), first = await c.signup('first', 'Shared Name'), second = await c.signup('second', 'Shared Name');
-  assert.notEqual(first.account.id, second.account.id);
-  assert.equal(first.account.name, 'Shared Name'); assert.equal(second.account.name, 'Shared Name');
-  assert.deepEqual(Object.keys(first.account).sort(), ['id', 'name']);
+test('signup uses one lowercase unique username as the public name', async () => {
+  const c = setup(), first = await c.signup('first', 'Alex_Morgan');
+  assert.equal(first.account.name, 'alex_morgan');
+  assert.equal(first.account.needsUsername, false);
+  const duplicate = await c.call('/auth/sign-up/email', { email: 'second@example.test', password, name: 'ALEX_MORGAN' });
+  assert.equal(duplicate.status, 400);
+  assert.match(await duplicate.text(), /already taken/);
+  const invalid = await c.call('/auth/sign-up/email', { email: 'third@example.test', password, name: 'Two Names' });
+  assert.equal(invalid.status, 400);
+  const update = await c.call('/auth/update-user', { name: 'different' }, first.cookie);
+  assert.equal(update.status, 400);
 });

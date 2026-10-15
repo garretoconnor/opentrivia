@@ -35,7 +35,7 @@ globalThis.setInterval = fn => { intervals.set(++timerId, fn); return timerId; }
 globalThis.clearInterval = id => intervals.delete(id);
 globalThis.setTimeout = () => ++timerId;
 globalThis.clearTimeout = () => {};
-const { state } = await import('../modules/state.js?v=0.10.1');
+const { state } = await import('../modules/state.js?v=0.10.5');
 state.currentView = 'daily';
 const { initDaily, loadDaily } = await import('../modules/daily.js');
 initDaily();

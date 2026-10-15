@@ -23,6 +23,8 @@ test('Better Auth migration preserves user IDs, games, votes, plays and daily hi
   sqlite.exec('BEGIN');
   sqlite.exec(readFileSync(new URL('../migrations/0007_email_sign_in.sql', import.meta.url), 'utf8'));
   sqlite.exec('COMMIT');
+  sqlite.exec(readFileSync(new URL('../migrations/0008_profiles.sql', import.meta.url), 'utf8'));
+  sqlite.exec(readFileSync(new URL('../migrations/0009_usernames.sql', import.meta.url), 'utf8'));
   assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(), []);
   for (const table of ['games', 'account_games', 'daily_attempts', 'plays', 'votes']) assert.equal(sqlite.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n, 1);
   assert.equal(sqlite.prepare('SELECT id, email FROM auth_users').get().id, id);

@@ -3,7 +3,7 @@ import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 const moduleFiles = (await readdir("modules")).filter((file) => file.endsWith(".js")).map((file) => `modules/${file}`);
 // Local room support imports api.mjs, which also imports daily.mjs. Both must
 // be served to browsers as well as copied for the Worker entrypoint.
-const files = ["index.html", "admin.html", "admin.css", "admin.js", "admin.mjs", "ok-logo.svg", "favicon.svg", "styles.css", "studio.css", "app.js", "core.mjs", "api.mjs", "daily.mjs", "auth.mjs", "accounts.css", ...moduleFiles];
+const files = ["index.html", "admin.html", "admin.css", "admin.js", "admin.mjs", "ok-logo.svg", "favicon.svg", "styles.css", "studio.css", "app.js", "core.mjs", "api.mjs", "daily.mjs", "auth.mjs", "profiles.mjs", "accounts.css", ...moduleFiles];
 
 await rm("dist", { recursive: true, force: true });
 await mkdir("dist/modules", { recursive: true });
@@ -25,7 +25,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) return handleApi(request, env);
-    const body = ASSETS[url.pathname];
+    const body = url.pathname.startsWith("/@") && /^[a-zA-Z0-9_]{3,30}$/.test(url.pathname.slice(2)) ? ASSETS["/"] : ASSETS[url.pathname];
     if (body === undefined) return new Response("Not found", { status: 404 });
     const extension = url.pathname.match(/\\.[^.]+$/)?.[0] ?? ".html";
     const headers = { "content-type": TYPES[extension] ?? "text/plain; charset=utf-8", "cache-control": extension === ".html" ? "no-cache" : "public, max-age=3600" };

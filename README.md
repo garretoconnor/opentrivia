@@ -178,3 +178,25 @@ node scripts/enroll-legacy-account.mjs USER_UUID owner@example.com /tmp/enroll-u
 ```
 
 The script only writes a file and never contacts a database or sends mail. Apply the reviewed SQL through the normal D1 admin process after ownership is verified. The owner then uses **Forgot password** and **Resend verification email** to enroll through Better Auth; the same user ID retains its games and scores. Existing custom password hashes are not interpreted as Better Auth hashes. Keep the archive/backups access-controlled until the migration retention decision is made. Do not rewrite previously applied migrations.
+
+### Profiles and friends
+
+Migration `0008_profiles.sql` adds profile preferences and mutual friendships.
+Apply migrations before deploying this version (the deployment workflow already
+applies migrations). The static Python preview cannot serve account/profile APIs;
+use the Worker development server with a local D1 database for those features.
+
+Profiles use one unique lowercase username (3–30 letters, numbers, or underscores) as their name and shareable `/@username` URL. Existing accounts choose a username in their profile after migration `0009_usernames.sql`; their internal IDs and data stay unchanged. Usernames can be edited, which changes the URL; old username URLs are not reserved or redirected. Legacy UUID profile links still resolve and canonicalize to the current username. Direct visits and reloads at `/@username` are served by the Worker.
+Bios support 2,000 characters. Picture uploads are resized to a 256px square in
+the browser and stored as bounded raster data URLs in D1. Profile, daily stats,
+published-games list, and friends list each support public, friends-only, or
+private visibility. Profile privacy gates the entire page; section privacy may
+restrict it further. Games-list privacy does not unpublish games from Explore,
+and drafts are never returned by the profile API. Daily leaderboard names remain
+public under the existing leaderboard rules. Friendships require acceptance;
+pending requests do not grant friends-only access.
+
+Streaks count submitted daily answers, including incorrect answers, using the
+same 07:00 UTC rollover as daily trivia. A streak remains active until the next
+trivia day is missed. Season positions use the existing average valid completion
+time ranking, including ties; users without a qualifying time are unranked.

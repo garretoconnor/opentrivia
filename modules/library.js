@@ -1,9 +1,9 @@
-import { publishCloudGame } from './accounts.js?v=0.10.1';
-import { editStudioClue } from "./studio.js?v=0.10.1";
-import { difficultySymbol, normalizeGame } from "../core.mjs?v=0.10.1";
-import { allowsLocalFallback, api } from "./data.js?v=0.10.1";
-import { $, elements, escapeHtml, switchView, toast } from "./render.js?v=0.10.1";
-import { localLibrary, saveGame, saveLocalLibrary, state, voterId } from "./state.js?v=0.10.1";
+import { publishCloudGame } from './accounts.js?v=0.10.5';
+import { editStudioClue } from "./studio.js?v=0.10.5";
+import { difficultySymbol, normalizeGame } from "../core.mjs?v=0.10.5";
+import { allowsLocalFallback, api } from "./data.js?v=0.10.5";
+import { $, elements, escapeHtml, switchView, toast } from "./render.js?v=0.10.5";
+import { localLibrary, saveGame, saveLocalLibrary, state, voterId } from "./state.js?v=0.10.5";
 
 let showSetup = () => {};
 let hostPublishedGame = () => {};

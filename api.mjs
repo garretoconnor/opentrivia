@@ -46,6 +46,10 @@ export async function handleApi(request, env) {
       const { handleAuth } = await import("./better-auth-server.mjs");
       return await handleAuth(request, env);
     }
+    if (path === "/api/profiles" || path.startsWith("/api/profiles/")) {
+      const { handleProfiles } = await import("./profiles.mjs");
+      return await handleProfiles(request, env);
+    }
     if (path === "/api/account" || path.startsWith("/api/account/")) {
       const { handleAccounts, handleAccountGames } = await import("./accounts.mjs");
       return path.startsWith("/api/account/games") ? await handleAccountGames(request, env) : await handleAccounts(request, env);
