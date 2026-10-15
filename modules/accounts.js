@@ -1,7 +1,7 @@
-import { createGame, normalizeGame } from '../core.mjs?v=0.10.2';
-import { api } from './data.js?v=0.10.2';
-import { $, escapeHtml, switchView, toast } from './render.js?v=0.10.2';
-import { configurePersistence, loadGuestGame, localLibrary, state, STORAGE_KEY } from './state.js?v=0.10.2';
+import { createGame, normalizeGame } from '../core.mjs?v=0.10.5';
+import { api } from './data.js?v=0.10.5';
+import { $, escapeHtml, switchView, toast } from './render.js?v=0.10.5';
+import { configurePersistence, loadGuestGame, localLibrary, state, STORAGE_KEY } from './state.js?v=0.10.5';
 
 let context = null;
 let debounce;

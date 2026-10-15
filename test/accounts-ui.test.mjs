@@ -19,8 +19,8 @@ const storage = new Map(); let storageFails = false;
 globalThis.localStorage = { getItem: key => storage.get(key) ?? null, setItem(key, value) { if (storageFails) throw new Error('Full'); storage.set(key, value); } };
 globalThis.document = Object.assign(new Element(), { querySelector: get, querySelectorAll: () => [], getElementById: id => get(`#${id}`), createElement: () => new Element(), dispatchEvent() {} });
 globalThis.window = Object.assign(new Element(), { scrollTo() {}, confirm: () => true });
-const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.10.2');
-const { initAccounts, flushCloud } = await import('../modules/accounts.js?v=0.10.2');
+const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.10.5');
+const { initAccounts, flushCloud } = await import('../modules/accounts.js?v=0.10.5');
 const account = { id: 'alice-id', name: 'Alice' };
 let server, calls, fail, hold, currentAccount;
 async function reset(cached, options = {}) {

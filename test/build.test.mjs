@@ -19,6 +19,13 @@ test("deployed Worker serves the entire browser module graph", async () => {
     const page = await worker.fetch(new Request(origin), {});
     assert.equal(page.status, 200);
     const html = await page.text();
+    for (const method of ['GET', 'HEAD']) {
+      const profile = await worker.fetch(new Request(origin + '/@alex_morgan', { method }), {});
+      assert.equal(profile.status, 200);
+      assert.match(profile.headers.get('content-type'), /text\/html/);
+      if (method === 'GET') assert.equal(await profile.text(), html);
+    }
+    assert.equal((await worker.fetch(new Request(origin + '/@bad-name'), {})).status, 404);
     for (const asset of ["ok-logo.svg", "favicon.svg"]) {
       const response = await worker.fetch(new Request(new URL(asset, origin)), {});
       assert.equal(response.status, 200, `Brand asset must be served: ${asset}`);

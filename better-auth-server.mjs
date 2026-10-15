@@ -24,7 +24,7 @@ export function getAuth(env) {
   const auth = betterAuth({
     appName: 'OpenTrivia', baseURL: baseURL.origin, basePath: '/api/auth', secret: env.BETTER_AUTH_SECRET,
     database: env.DB, trustedOrigins: [baseURL.origin],
-    user: { modelName: 'auth_users' }, account: { modelName: 'auth_credentials' },
+    user: { modelName: 'auth_users', additionalFields: { username: { type: 'string', required: false, input: false } } }, account: { modelName: 'auth_credentials' },
     session: { modelName: 'auth_sessions', expiresIn: 30 * 86400, cookieCache: { enabled: false } },
     verification: { modelName: 'auth_verifications' },
     advanced: { cookiePrefix: 'opentrivia', ipAddress: { ipAddressHeaders: ['cf-connecting-ip'] }, database: { generateId: () => crypto.randomUUID() } },
@@ -40,10 +40,12 @@ export function getAuth(env) {
     rateLimit: { enabled: true, storage: 'database', modelName: 'auth_rate_limits', window: 60, max: 100,
       customRules: { '/sign-in/*': { window: 900, max: 15 }, '/sign-up/email': { window: 900, max: 10 }, '/request-password-reset': { window: 900, max: 5 }, '/send-verification-email': { window: 900, max: 5 } } },
     databaseHooks: { user: { create: { before: async user => {
-      if (!user.name?.trim() || user.name.trim().length > 30) throw new APIError('BAD_REQUEST', { message: 'Enter a public display name of 1–30 characters.' });
-      return { data: { ...user, name: user.name.trim() } };
+      const username = typeof user.name === 'string' ? user.name.trim().toLowerCase() : '';
+      if (!/^[a-z0-9_]{3,30}$/.test(username)) throw new APIError('BAD_REQUEST', { message: 'Use 3–30 letters, numbers, or underscores for your username.' });
+      if (await env.DB.prepare('SELECT id FROM auth_users WHERE username = ?').bind(username).first()) throw new APIError('BAD_REQUEST', { message: 'That username is already taken.' });
+      return { data: { ...user, name: username, username } };
     } }, update: { before: async user => {
-      if (user.name !== undefined && (!user.name.trim() || user.name.trim().length > 30)) throw new APIError('BAD_REQUEST', { message: 'Enter a public display name of 1–30 characters.' });
+      if (user.name !== undefined || user.username !== undefined) throw new APIError('BAD_REQUEST', { message: 'Change your username from your profile.' });
     } } } },
     hooks: { before: createAuthMiddleware(async ctx => {
       if (ctx.path === '/sign-in/email') {

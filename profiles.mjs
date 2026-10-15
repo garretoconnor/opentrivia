@@ -37,16 +37,20 @@ export async function handleProfiles(request, env) {
   if (url.pathname === '/api/profiles' && request.method === 'GET') {
     const query = (url.searchParams.get('q') || '').trim().slice(0, 80);
     if (query.length < 2) return json({ profiles: [] });
-    const rows = await DB.prepare(`SELECT u.id, u.name FROM auth_users u LEFT JOIN profiles p ON p.account_id = u.id
+    const rows = await DB.prepare(`SELECT u.id, u.name, u.username FROM auth_users u LEFT JOIN profiles p ON p.account_id = u.id
       WHERE u.emailVerified = 1 AND COALESCE(p.visibility, 'public') = 'public' AND instr(lower(u.name), lower(?)) > 0
       ORDER BY u.name, u.id LIMIT 30`).bind(query).all();
     return json({ profiles: rows.results });
   }
   const match = url.pathname.match(/^\/api\/profiles\/([^/]+)(\/friend)?$/);
   if (!match) return fail('Profile not found.', 404);
-  const id = decodeURIComponent(match[1]);
-  const user = await DB.prepare('SELECT id, name FROM auth_users WHERE id = ? AND emailVerified = 1').bind(id).first();
+  const reference = decodeURIComponent(match[1]);
+  const byUsername = reference.startsWith('@');
+  const user = await DB.prepare(byUsername
+    ? 'SELECT id, name, username FROM auth_users WHERE username = ? AND emailVerified = 1'
+    : 'SELECT id, name, username FROM auth_users WHERE id = ? AND emailVerified = 1').bind(byUsername ? reference.slice(1).toLowerCase() : reference).first();
   if (!user) return fail('Profile not found.', 404);
+  const id = user.id;
   const owner = account?.id === id;
   const relationship = account && !owner ? await pair(DB, account.id, id) : null;
   const friend = relationship?.status === 'accepted';
@@ -76,18 +80,25 @@ export async function handleProfiles(request, env) {
     if (scopes.some(key => !['public', 'private', 'friends'].includes(body[key]))) return fail('Choose a valid privacy setting.');
     // Only bounded raster data URLs; no SVG, remote URLs, or executable content.
     if (typeof body.picture !== 'string' || body.picture.length > 350000 || body.picture && !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(body.picture)) return fail('Choose a PNG, JPEG, or WebP picture under 250 KB.');
-    await DB.prepare(`INSERT INTO profiles (account_id, bio, picture, visibility, stats_visibility, games_visibility, friends_visibility)
+    const username = body.username === undefined ? user.username : typeof body.username === 'string' ? body.username.trim().toLowerCase() : '';
+    if (body.username !== undefined && !/^[a-z0-9_]{3,30}$/.test(username)) return fail('Use 3–30 letters, numbers, or underscores for your username.');
+    if (username && await DB.prepare('SELECT id FROM auth_users WHERE username = ? AND id != ?').bind(username,id).first()) return fail('That username is already taken.',409);
+    const statements = [];
+    if (username) statements.push(DB.prepare('UPDATE auth_users SET name = ?, username = ? WHERE id = ?').bind(username,username,id));
+    statements.push(DB.prepare(`INSERT INTO profiles (account_id, bio, picture, visibility, stats_visibility, games_visibility, friends_visibility)
       VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(account_id) DO UPDATE SET bio=excluded.bio, picture=excluded.picture,
       visibility=excluded.visibility, stats_visibility=excluded.stats_visibility, games_visibility=excluded.games_visibility, friends_visibility=excluded.friends_visibility`)
-      .bind(id, body.bio.trim(), body.picture, ...scopes.map(key => body[key])).run();
+      .bind(id, body.bio.trim(), body.picture, ...scopes.map(key => body[key])));
+    try { await DB.batch(statements); }
+    catch (error) { if (/UNIQUE.*username/i.test(error.message)) return fail('That username is already taken.',409); throw error; }
     return json({ ok: true });
   }
   if (request.method !== 'GET') return fail('Method not allowed.', 405);
   if (!visible(profile.visibility, owner, friend)) return fail('This profile is private.', 403);
-  const result = { id, name: user.name, bio: profile.bio, picture: profile.picture, owner, relationship: friend ? 'friends' : relationship ? relationship.recipient === account.id ? 'incoming' : 'outgoing' : 'none' };
+  const result = { id, name: user.name, username: user.username, bio: profile.bio, picture: profile.picture, owner, relationship: friend ? 'friends' : relationship ? relationship.recipient === account.id ? 'incoming' : 'outgoing' : 'none' };
   result.stats = visible(profile.stats_visibility, owner, friend) ? await dailyStats(DB, id) : null;
-  result.games = visible(profile.games_visibility, owner, friend) ? (await DB.prepare('SELECT id, title FROM games WHERE account_id = ? ORDER BY created_at DESC, id').bind(id).all()).results : null;
-  result.friends = visible(profile.friends_visibility, owner, friend) ? (await DB.prepare(`SELECT u.id, u.name FROM friendships f
+  result.games = visible(profile.games_visibility, owner, friend) ? (await DB.prepare(`SELECT id, title, hero_image, difficulty, COALESCE(json_extract(game_json, '$.adult_content'), 0) AS adult_content FROM games WHERE account_id = ? ORDER BY created_at DESC, id`).bind(id).all()).results : null;
+  result.friends = visible(profile.friends_visibility, owner, friend) ? (await DB.prepare(`SELECT u.id, u.name, u.username, CASE WHEN p.visibility != 'private' THEN p.picture ELSE '' END AS picture FROM friendships f
     JOIN auth_users u ON u.id = CASE WHEN f.requester = ? THEN f.recipient ELSE f.requester END
     LEFT JOIN profiles p ON p.account_id = u.id
     WHERE (f.requester = ? OR f.recipient = ?) AND f.status = 'accepted'
@@ -97,7 +108,7 @@ export async function handleProfiles(request, env) {
     ORDER BY u.name, u.id`).bind(id, id, id, owner ? 1 : 0, account?.id || '', account?.id || '', account?.id || '').all()).results : null;
   if (owner) {
     result.privacy = Object.fromEntries(scopes.map(key => [key, profile[key]]));
-    result.requests = (await DB.prepare(`SELECT u.id, u.name, CASE WHEN f.recipient = ? THEN 'incoming' ELSE 'outgoing' END AS direction
+    result.requests = (await DB.prepare(`SELECT u.id, u.name, u.username, CASE WHEN f.recipient = ? THEN 'incoming' ELSE 'outgoing' END AS direction
       FROM friendships f JOIN auth_users u ON u.id = CASE WHEN f.requester = ? THEN f.recipient ELSE f.requester END
       WHERE (f.requester = ? OR f.recipient = ?) AND f.status = 'pending' ORDER BY u.name`).bind(id,id,id,id).all()).results;
   }

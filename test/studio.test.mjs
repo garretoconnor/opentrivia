@@ -35,7 +35,7 @@ globalThis.Option = class extends Element { constructor(text, value) { super(); 
 const storage = new Map();
 let failSave = false;
 globalThis.localStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => { if (failSave) throw new Error('Quota exceeded'); storage.set(key, value); } };
-const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.10.2');
+const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.10.5');
 const { initStudio, renderStudio, editStudioClue } = await import('../modules/studio.js');
 initStudio();
 function reset() { failSave = false; state.game = createGame(); state.authoredGame = state.game; state.selectedBoard = 0; renderStudio(); saveGame(); }
@@ -180,8 +180,8 @@ test('round titles persist through normalization and appear in round navigation'
 
 test('preview plays the selected round in isolation and restores the editor on exit', async () => {
   reset();
-  const { initLocalPlay, previewRound } = await import('../modules/local-play.js?v=0.10.2');
-  const { switchView } = await import('../modules/render.js?v=0.10.2');
+  const { initLocalPlay, previewRound } = await import('../modules/local-play.js?v=0.10.5');
+  const { switchView } = await import('../modules/render.js?v=0.10.5');
   const { createBossBoard } = await import('../core.mjs');
   initLocalPlay({});
   state.game.boards.push(createBossBoard());

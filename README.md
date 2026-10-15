@@ -186,7 +186,7 @@ Apply migrations before deploying this version (the deployment workflow already
 applies migrations). The static Python preview cannot serve account/profile APIs;
 use the Worker development server with a local D1 database for those features.
 
-Profiles have shareable `/#profile=<account-id>` URLs and public name search.
+Profiles use one unique lowercase username (3–30 letters, numbers, or underscores) as their name and shareable `/@username` URL. Existing accounts choose a username in their profile after migration `0009_usernames.sql`; their internal IDs and data stay unchanged. Usernames can be edited, which changes the URL; old username URLs are not reserved or redirected. Legacy UUID profile links still resolve and canonicalize to the current username. Direct visits and reloads at `/@username` are served by the Worker.
 Bios support 2,000 characters. Picture uploads are resized to a 256px square in
 the browser and stored as bounded raster data URLs in D1. Profile, daily stats,
 published-games list, and friends list each support public, friends-only, or

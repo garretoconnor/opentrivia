@@ -9,7 +9,7 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="styles.css?v=0.5.5" />
     <link rel="stylesheet" href="studio.css?v=0.5.4" />
-    <link rel="stylesheet" href="accounts.css?v=0.10.2" />
+    <link rel="stylesheet" href="accounts.css?v=0.10.5" />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -86,7 +86,7 @@
           <p id="daily-identity" class="muted"></p>
           <form id="daily-answer-form" hidden>
             <label class="field-label" for="daily-name">Leaderboard name</label>
-            <input id="daily-name" autocomplete="nickname" maxlength="30" required />
+            <input id="daily-name" autocomplete="username" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]{3,30}" required />
             <label class="field-label" for="daily-answer">Your answer</label>
             <input id="daily-answer" maxlength="300" autocomplete="off" required aria-describedby="daily-answer-help" />
             <p id="daily-answer-help" class="muted">You get one submission. Capitalization and extra spaces don’t matter.</p>
@@ -176,7 +176,7 @@
         <p id="account-intro">Welcome back. Your games and daily results are waiting.</p>
         <form id="account-form">
           <div id="account-email-field"><label class="field-label" for="account-email">Email address</label><input id="account-email" type="email" autocomplete="email" maxlength="254" required /></div>
-          <div id="account-name-field" hidden><label class="field-label" for="account-name">Display name</label><input id="account-name" autocomplete="nickname" maxlength="30" aria-describedby="account-name-help" /><p id="account-name-help" class="account-help">Shown on leaderboards. Your email stays private.</p></div>
+          <div id="account-name-field" hidden><label class="field-label" for="account-name">Username</label><input id="account-name" autocomplete="username" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]{3,30}" aria-describedby="account-name-help" /><p id="account-name-help" class="account-help">3–30 letters, numbers, or underscores. Used as your name and profile link.</p></div>
           <div id="account-password-field">
             <label class="field-label" for="account-password">Password</label><input id="account-password" type="password" autocomplete="current-password" minlength="1" maxlength="128" required />
             <p id="account-password-help" class="account-help" hidden>Use at least 15 characters.</p>
@@ -193,8 +193,8 @@
       <p id="account-message" role="status"></p>
       <p id="account-error" class="account-error" role="alert"></p>
     </div></section>
-      <section id="public-profile-view" class="profile-view" hidden aria-labelledby="public-profile-title"><div class="profile-card">
-        <h1 id="public-profile-title" tabindex="-1">Player profile</h1><div id="public-profile-content"></div>
+      <section id="public-profile-view" class="profile-view" hidden aria-label="Player profile"><div class="profile-card">
+        <div id="public-profile-content"></div>
       </div></section>
     </main>
     </div>
@@ -240,6 +240,6 @@
     <dialog id="card-dialog" class="dialog play-card-dialog"><div id="card-dialog-content"></div></dialog>
     <input id="file-input" type="file" accept="application/json,.json" hidden />
     <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
-    <script type="module" src="app.js?v=0.10.2"></script>
+    <script type="module" src="app.js?v=0.10.5"></script>
   </body>
 </html>

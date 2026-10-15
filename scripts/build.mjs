@@ -25,7 +25,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) return handleApi(request, env);
-    const body = ASSETS[url.pathname];
+    const body = url.pathname.startsWith("/@") && /^[a-zA-Z0-9_]{3,30}$/.test(url.pathname.slice(2)) ? ASSETS["/"] : ASSETS[url.pathname];
     if (body === undefined) return new Response("Not found", { status: 404 });
     const extension = url.pathname.match(/\\.[^.]+$/)?.[0] ?? ".html";
     const headers = { "content-type": TYPES[extension] ?? "text/plain; charset=utf-8", "cache-control": extension === ".html" ? "no-cache" : "public, max-age=3600" };

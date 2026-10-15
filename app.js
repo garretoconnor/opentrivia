@@ -1,13 +1,13 @@
-import { initProfiles, refreshProfileIdentity } from './modules/profiles.js?v=0.10.2';
-import { initAccounts } from './modules/accounts.js?v=0.10.2';
-import { initDaily, loadDaily, resetDailyIdentity } from "./modules/daily.js?v=0.10.2";
-import { closeHostedRoom, hostPublished, initHost, openHostedPlayCard } from "./modules/host.js?v=0.10.2";
-import { initLibrary, loadLibrary } from "./modules/library.js?v=0.10.2";
-import { initLocalPlay, showSetup } from "./modules/local-play.js?v=0.10.2";
-import { initPlayer } from "./modules/player.js?v=0.10.2";
-import { $, configureViewRenderers, elements, switchView } from "./modules/render.js?v=0.10.2";
-import { initStudio, renderStudio } from "./modules/studio.js?v=0.10.2";
-import { state } from "./modules/state.js?v=0.10.2";
+import { initProfiles, refreshProfileIdentity } from './modules/profiles.js?v=0.10.5';
+import { initAccounts } from './modules/accounts.js?v=0.10.5';
+import { initDaily, loadDaily, resetDailyIdentity } from "./modules/daily.js?v=0.10.5";
+import { closeHostedRoom, hostPublished, initHost, openHostedPlayCard } from "./modules/host.js?v=0.10.5";
+import { initLibrary, loadLibrary } from "./modules/library.js?v=0.10.5";
+import { initLocalPlay, showSetup } from "./modules/local-play.js?v=0.10.5";
+import { initPlayer } from "./modules/player.js?v=0.10.5";
+import { $, configureViewRenderers, elements, switchView } from "./modules/render.js?v=0.10.5";
+import { initStudio, renderStudio } from "./modules/studio.js?v=0.10.5";
+import { state } from "./modules/state.js?v=0.10.5";
 
 initDaily();
 initStudio();

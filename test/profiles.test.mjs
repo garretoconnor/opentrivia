@@ -99,3 +99,25 @@ test('friend list visibility follows all three privacy scopes and private profil
   assert.deepEqual(guest.friends,[]);
   assert.equal(JSON.stringify(guest).includes('email'),false);
 });
+
+test('a single unique username changes the profile URL and all names without changing ownership', async () => {
+  const c = setup();
+  let response = await c.call('/profiles/alice','alice',prefs({username:'Alex_Morgan'}));
+  assert.equal(response.status,200);
+  let p = (await (await c.call('/profiles/@ALEX_MORGAN')).json()).profile;
+  assert.equal(p.id,'alice'); assert.equal(p.name,'alex_morgan'); assert.equal(p.username,'alex_morgan');
+  assert.equal(c.DB.sqlite.prepare("SELECT name FROM daily_players WHERE id='alice'").get().name,'alex_morgan');
+  assert.equal((await c.call('/profiles/bob','bob',prefs({username:'ALEX_MORGAN'}))).status,409);
+  assert.equal((await c.call('/profiles/bob','bob',prefs({username:'bad-name'}))).status,400);
+  await c.call('/profiles/alice/friend','bob',{},'POST');
+  await c.call('/profiles/bob/friend','alice',{},'PUT');
+  await c.call('/profiles/alice','alice',prefs({username:'alex_new'}));
+  assert.equal((await c.call('/profiles/@alex_morgan')).status,404);
+  p = (await (await c.call('/profiles/@alex_new','bob')).json()).profile;
+  assert.equal(p.relationship,'friends'); assert.equal(p.id,'alice');
+  assert.equal((await c.call('/profiles/alice')).status,200);
+  const session = (await (await c.call('/account','alice')).json()).account;
+  assert.equal(session.name,'alex_new'); assert.equal(session.needsUsername,false);
+  const results = (await (await c.call('/profiles?q=alex_new')).json()).profiles;
+  assert.equal(results[0].username,'alex_new');
+});
