@@ -4,6 +4,21 @@ OpenTrivia is a browser toolkit for creating, publishing, discovering, and hosti
 
 In hosted games, players join from their own devices, buzz on revealed clues, submit timed answers, and receive server-authoritative scores. The room awards the first buzz, shows a 30-second countdown plus five seconds of red overtime, and reopens missed clues for players who have not attempted them yet.
 
+## Hosted game flow
+
+The host creates a room and shares its code. At least two players join on their own devices before the host starts. Each player starts with 1,000 points.
+
+- An open standard clue has a 30-second buzz window. If nobody buzzes, the room marks the clue used without changing scores. Each retry after a wrong answer or an answer timeout starts a new 30-second buzz window.
+- The first player to buzz gets 30 seconds plus five seconds of overtime to submit an answer. The clue and image stay visible on all devices. Exact answers and approved alternatives are accepted automatically, ignoring case and spacing. Other submitted answers go to the host. Scores, penalties, and further attempts are controlled by the server.
+- When a clue closes, the host and players see its correct answer, accepted alternatives, and explanation. Answers stay hidden from player devices while further attempts are possible.
+- Completing a board starts a 10-second countdown before the next board. The host can set 0–120 seconds in the lobby or between rounds. Zero disables automatic advancement. The host can also advance immediately between rounds.
+- A Boss round shows the topic for a full 30-second wager period, then the clue for a full 30-second answer period. Wagers and answers are submitted on player devices. Each wager is an integer from zero to the player's positive score; a player with zero or negative points can wager zero. Missing wagers become zero. Missing answers lose the wager automatically. At the end of the answer period, exact answers and approved alternatives score automatically; the host judges the remaining submitted answers.
+- The last completed board opens final standings on every device. Equal scores share a rank. Game completion does not close the room. The host closes it with **Close room**; existing page-leave cleanup and the six-hour room expiry still apply.
+
+Hosted answer checks accept only normalized exact matches to the correct answer or its `accepted_answers`. Different number forms must be approved explicitly: add “Henry the 8th” as an alternative to “Henry VIII”; “Henry VII” remains a different answer. Daily trivia keeps its existing matching behavior.
+
+Before locking an answer, a conservative fuzzy check can offer one spelling review per attempt. It checks one edit or adjacent letter swap in one long alphabetic word. Numbers, Roman numerals, symbols, short names, protected number/negation words, and changed word boundaries do not receive fuzzy hints. The player can edit or submit as written. The expected answer and alternatives are never included in the prompt. The timer continues, and fuzzy matching never awards points or rejects an answer. Unmatched submissions still go to the host. Boss matches are scored only after the shared answer deadline.
+
 ## Run locally
 
 ```sh

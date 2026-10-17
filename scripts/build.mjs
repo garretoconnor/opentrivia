@@ -3,7 +3,7 @@ import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 const moduleFiles = (await readdir("modules")).filter((file) => file.endsWith(".js")).map((file) => `modules/${file}`);
 // Local room support imports api.mjs, which also imports daily.mjs. Both must
 // be served to browsers as well as copied for the Worker entrypoint.
-const files = ["index.html", "admin.html", "admin.css", "admin.js", "admin.mjs", "ok-logo.svg", "favicon.svg", "styles.css", "studio.css", "app.js", "core.mjs", "api.mjs", "daily.mjs", "auth.mjs", "profiles.mjs", "accounts.css", ...moduleFiles];
+const files = ["index.html", "admin.html", "admin.css", "admin.js", "admin.mjs", "ok-logo.svg", "favicon.svg", "styles.css", "studio.css", "app.js", "core.mjs", "api.mjs", "answer-check.mjs", "daily.mjs", "auth.mjs", "profiles.mjs", "accounts.css", ...moduleFiles];
 
 await rm("dist", { recursive: true, force: true });
 await mkdir("dist/modules", { recursive: true });

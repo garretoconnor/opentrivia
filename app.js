@@ -1,7 +1,7 @@
 import { initProfiles, refreshProfileIdentity } from './modules/profiles.js?v=0.11.0';
 import { initAccounts } from './modules/accounts.js?v=0.11.0';
 import { initDaily, loadDaily, resetDailyIdentity } from "./modules/daily.js?v=0.11.0";
-import { closeHostedRoom, hostPublished, initHost, openHostedPlayCard } from "./modules/host.js?v=0.11.0";
+import { closeHostedRoom, hostPublished, initHost, openHostedPlayCard, renderHostedRound } from "./modules/host.js?v=0.11.0";
 import { initLibrary, loadLibrary } from "./modules/library.js?v=0.11.0";
 import { initLocalPlay, showSetup } from "./modules/local-play.js?v=0.11.0";
 import { initPlayer } from "./modules/player.js?v=0.11.0";
@@ -13,12 +13,12 @@ initDaily();
 initStudio();
 initHost();
 initPlayer();
-initLocalPlay({ openHostedPlayCard, closeHostedRoom });
+initLocalPlay({ openHostedPlayCard, closeHostedRoom, renderHostedRound });
 initLibrary({ showSetup, hostPublished });
 configureViewRenderers({ renderStudio, loadLibrary, loadDaily });
 
 elements.exitPlay.addEventListener("click", () => {
-  if (state.currentView === "host") closeHostedRoom();
+  if (state.hostedRoom) closeHostedRoom();
   else switchView(state.returnView);
 });
 
