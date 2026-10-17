@@ -11,10 +11,12 @@ import { $, elements, escapeHtml, formatText, answerDetails, switchView, toast }
 import { saveGame, state } from "./state.js?v=0.11.0";
 
 let openHostedPlayCard = () => {};
+let renderHostedRound = () => {};
 let closeHostedRoom = () => {};
 
 export function initLocalPlay(dependencies) {
   openHostedPlayCard = dependencies.openHostedPlayCard;
+  renderHostedRound = dependencies.renderHostedRound;
   closeHostedRoom = dependencies.closeHostedRoom;
   $("#preview-button").addEventListener("click", previewRound);
   document.addEventListener("opentrivia:view", () => {
@@ -99,6 +101,7 @@ export function renderScoreboard() {
 }
 
 export function renderPlayRound() {
+  if (state.session?.hosted) return renderHostedRound();
   const board = state.game.boards[state.session.boardIndex];
   elements.playKicker.textContent = `${state.session.preview ? "Preview · " : ""}${board.title ? `${board.title} · ` : ""}Round ${state.session.boardIndex + 1} of ${state.game.boards.length} · ${isBossBoard(board) ? "Boss" : "Standard"}`;
   renderScoreboard();
@@ -106,7 +109,7 @@ export function renderPlayRound() {
   else renderStandardRound();
 }
 
-function renderStandardRound() {
+export function renderStandardRound() {
   const board = state.game.boards[state.session.boardIndex];
   const rows = Math.max(...board.columns.map((column) => column.size));
   const grid = document.createElement("div");

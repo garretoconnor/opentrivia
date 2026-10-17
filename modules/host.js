@@ -1,7 +1,8 @@
+import { roomTimer, closedClue, standings, clueText } from './room-ui.js?v=0.11.0';
 import { normalizeGame } from "../core.mjs?v=0.11.0";
 import { allowsLocalFallback, api } from "./data.js?v=0.11.0";
 import { getPublishedGame, recordLocalPlay } from "./library.js?v=0.11.0";
-import { renderPlayRound, renderScoreboard } from "./local-play.js?v=0.11.0";
+import { renderPlayRound, renderScoreboard, renderStandardRound } from "./local-play.js?v=0.11.0";
 import { $, elements, escapeHtml, formatText, answerDetails, switchView, toast, updateBuzzTimers } from "./render.js?v=0.11.0";
 import {
   localRoomStore,
@@ -33,6 +34,9 @@ export async function hostPublished(id) {
       state.hostedRoom = await makeLocalRoom(selected);
     }
     state.hostedRoom.gameId = id;
+    state.hostRoomSnapshot = null;
+    state.session = null;
+    $("#host-countdown").value = "10";
     elements.hostCode.textContent = state.hostedRoom.code;
     $("#host-game-name").textContent = `Hosting “${selected.name}”`;
     renderHostPlayers({ players: [], started: false });
@@ -78,29 +82,59 @@ function renderHostPlayers(room) {
 }
 
 function syncHostRoom(room) {
+  const previous = state.hostRoomSnapshot;
+  if (previous && previous.revision > room.revision) return;
   state.hostRoomSnapshot = room;
   if (state.currentView === "host") renderHostPlayers(room);
-  if (!state.session?.hosted) return;
-  state.session.players = room.players.map((serverPlayer) => {
-    const local = state.session.players.find((player) => player.id === serverPlayer.id) || {};
-    return {
-      ...local,
-      ...serverPlayer,
-      eliminated: false,
-      wager: local.wager ?? null,
-      guess: local.guess ?? "",
-      graded: local.graded ?? false,
-    };
-  });
+  if (!state.session?.hosted || previous?.revision === room.revision) return;
+  state.session.players = room.players;
   state.session.used = room.used;
+  state.session.boardIndex = room.board_index;
+  if (state.currentView === "play") renderHostedRound();
+}
+
+export function renderHostedRound() {
+  const room = state.hostRoomSnapshot;
+  if (!room) return;
   renderScoreboard();
-  if (room.active_clue && state.hostClueLocation) {
+  elements.playKicker.textContent = room.phase === "finished" ? "Game complete" : `Round ${room.board_index + 1} of ${room.board_count}`;
+  if (room.active_clue) {
+    state.hostClueLocation = { boardIndex: room.board_index };
+    if (!elements.cardDialog.open) elements.cardDialog.showModal();
     renderHostedClue(room);
-  } else if (!room.active_clue && state.hostClueLocation) {
-    state.hostClueLocation = null;
-    if (elements.cardDialog.open) elements.cardDialog.close();
-    renderPlayRound();
+    return;
   }
+  state.hostClueLocation = null;
+  if (elements.cardDialog.open) elements.cardDialog.close();
+  if (room.phase === "finished") {
+    elements.playStage.innerHTML = `<div class="final-card"><h2>Final standings</h2>${closedClue(room)}${standings(room)}<p>The room stays open until you close it.</p><button class="button primary" id="finish-close-room">Close room</button></div>`;
+    $('#finish-close-room').addEventListener('click', () => closeHostedRoom());
+  } else if (room.phase === "transition") {
+    elements.playStage.innerHTML = `<div class="boss-card"><h2>Round complete</h2>${closedClue(room)}<p>${room.transition_deadline ? 'Next round starts in' : 'Ready for the next round.'}</p>${roomTimer(room.transition_deadline, room.server_time)}<button class="button primary" id="advance-host-board">Next round</button><label class="field-label" for="round-countdown">Seconds between rounds (0 = host advances)</label><input id="round-countdown" type="number" min="0" max="120" value="${room.transition_seconds}"><button class="button secondary" id="save-round-countdown">Save countdown</button></div>`;
+    $('#advance-host-board').addEventListener('click', () => hostAction('advance', { board_index: room.board_index }));
+    $('#save-round-countdown').addEventListener('click', () => hostAction('settings', { transition_seconds: Number($('#round-countdown').value) }));
+  } else if (room.phase === "boss") {
+    renderHostedBoss(room);
+  } else {
+    renderStandardRound();
+    const footer = elements.playStage.querySelector('.round-footer');
+    footer.querySelector('button').remove();
+    footer.insertAdjacentHTML('beforebegin', closedClue(room));
+  }
+  updateBuzzTimers();
+}
+
+async function hostAction(action, body) {
+  try {
+    const result = await roomRequest(state.hostedRoom.code, action, { method: 'POST', headers: hostHeaders(), body: JSON.stringify(body) });
+    syncHostRoom(result.room);
+  } catch (error) { toast(error.message, true); }
+}
+
+function renderHostedBoss(room) {
+  const boss = room.boss;
+  elements.playStage.innerHTML = `<div class="boss-card"><div class="eyebrow">Boss round · ${escapeHtml(boss.topic)}</div>${boss.phase === 'wager' ? '<h2>Players are making their wagers</h2>' : clueText(boss)}${roomTimer(boss.deadline, room.server_time)}<p>${boss.submitted} of ${room.players.length} ${boss.phase === 'wager' ? 'wagers' : 'answers'} submitted</p>${boss.phase === 'judging' ? `<div class="correct-response"><strong>${formatText(boss.answer)}</strong>${answerDetails(boss)}</div><div class="grading-list">${boss.entries.map(entry => `<div class="grading-row"><div><strong>${escapeHtml(entry.name)}</strong><p>${entry.answer === null ? 'No answer' : formatText(entry.answer)} · Wager: ${entry.wager}</p></div>${entry.graded ? `<span>${entry.correct ? entry.automatic ? 'Accepted automatically' : 'Correct' : 'Incorrect'}</span>` : `<button class="score-button negative" data-player="${entry.id}" data-correct="false">Incorrect</button><button class="score-button positive" data-player="${entry.id}" data-correct="true">Correct</button>`}</div>`).join('')}</div>` : '<p>Each phase lasts 30 seconds.</p>'}</div>`;
+  elements.playStage.querySelectorAll('[data-correct]').forEach(button => button.addEventListener('click', () => hostAction('boss-ruling', { player_id: button.dataset.player, correct: button.dataset.correct === 'true' })));
 }
 
 async function launchHostedGame() {
@@ -158,11 +192,12 @@ function renderHostedClue(room) {
     ? `<p class="attempt-notice">${escapeHtml(room.last_result.player_name)} ${room.last_result.outcome === "timeout" ? "ran out of time" : "was ruled incorrect"}. The clue is open again.</p>`
     : "";
   if (active.phase === "open") {
-    elements.cardContent.innerHTML = `<div class="eyebrow">${escapeHtml(column.topic)} · ${clue.value.toLocaleString()} points</div><h2>Clue</h2>${previous}${clue.image ? `<img class="play-clue-image" src="${escapeHtml(clue.image)}" alt="Image for this clue">` : ""}<p class="revealed-answer">${formatText(clue.clue || "No clue was provided.")}</p><div class="buzz-open"><span class="live-dot" aria-hidden="true"></span> Buzzers are open${active.attempt > 1 ? ` · attempt ${active.attempt}` : ""}</div>`;
+    elements.cardContent.innerHTML = `<div class="eyebrow">${escapeHtml(column.topic)} · ${clue.value.toLocaleString()} points</div><h2>Clue</h2>${previous}${clue.image ? `<img class="play-clue-image" src="${escapeHtml(clue.image)}" alt="Image for this clue">` : ""}<p class="revealed-answer">${formatText(clue.clue || "No clue was provided.")}</p>${roomTimer(active.deadline, room.server_time)}<div class="buzz-open"><span class="live-dot" aria-hidden="true"></span> Buzzers are open${active.attempt > 1 ? ` · attempt ${active.attempt}` : ""}</div>`;
+    updateBuzzTimers();
     return;
   }
   if (active.phase === "answering") {
-    elements.cardContent.innerHTML = `<div class="eyebrow">First buzz</div><h2>${escapeHtml(active.buzzer.name)} buzzed first.</h2><p class="clue-hidden-note">The clue is hidden while ${escapeHtml(active.buzzer.name)} answers.</p><div class="buzz-timer" data-deadline="${active.deadline}">30</div><p>Waiting for an answer…</p>`;
+    elements.cardContent.innerHTML = `<div class="eyebrow">First buzz</div><h2>${escapeHtml(active.buzzer.name)} buzzed first.</h2>${clueText(active)}${roomTimer(active.deadline, room.server_time, true)}<p>Waiting for an answer…</p>`;
     updateBuzzTimers();
     return;
   }
@@ -183,6 +218,7 @@ async function submitHostRuling(correct) {
     syncHostRoom(result.room);
   } catch (error) {
     toast(error.message, true);
+    if (state.hostRoomSnapshot?.active_clue) renderHostedClue(state.hostRoomSnapshot);
   }
 }
 
@@ -197,6 +233,10 @@ export function initHost() {
   });
   $("#close-room-button").addEventListener("click", () => closeHostedRoom());
   $("#host-start-button").addEventListener("click", launchHostedGame);
+  $('#host-countdown').addEventListener('change', async () => {
+    await hostAction('settings', { transition_seconds: Number($('#host-countdown').value) });
+    $('#host-countdown').value = String(state.hostRoomSnapshot?.transition_seconds ?? 10);
+  });
   window.addEventListener("pagehide", () => {
     if (!state.hostedRoom) return;
     fetch(`/api/rooms/${state.hostedRoom.code}/close`, {

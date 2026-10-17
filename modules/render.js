@@ -81,6 +81,9 @@ export function formatText(value) {
 }
 
 export function updateBuzzTimers() {
+  document.querySelectorAll(".room-timer[data-deadline]").forEach(element => {
+    element.textContent = `${Math.max(0, Math.ceil((Number(element.dataset.deadline) - Date.now()) / 1000))} s`;
+  });
   document.querySelectorAll(".buzz-timer[data-deadline]").forEach((element) => {
     const timer = buzzTimer(Number(element.dataset.deadline));
     element.textContent = String(timer.seconds);

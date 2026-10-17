@@ -1,6 +1,7 @@
+import { needsTypoConfirmation } from './answer-check.mjs';
 import { handleDaily } from "./daily.mjs";
 import { handleAdmin } from "./admin.mjs";
-import { normalizeGame } from "./core.mjs?v=0.11.0";
+import { matchesAnswer, normalizeGame } from "./core.mjs?v=0.11.0";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 const ROOM_TTL_MS = 6 * 60 * 60 * 1000;
@@ -160,7 +161,7 @@ export async function handleApi(request, env) {
       });
     }
 
-    const roomActionMatch = path.match(/^\/api\/rooms\/([A-Z2-9]{6})\/(players|start|clues|buzz|answer|ruling)$/i);
+    const roomActionMatch = path.match(/^\/api\/rooms\/([A-Z2-9]{6})\/(players|start|clues|buzz|answer|ruling|settings|advance|wager|boss-answer|boss-ruling)$/i);
     if (roomActionMatch && request.method === "POST") {
       if (!env.ROOMS) return error("Hosting is not configured.", 503);
       const code = roomActionMatch[1].toUpperCase();
@@ -218,6 +219,12 @@ export class TriviaRoom {
         expires_at: this.now() + ROOM_TTL_MS,
         players: [],
         started: false,
+        board_index: 0,
+        phase: "lobby",
+        transition_seconds: 10,
+        transition_deadline: null,
+        boss: null,
+        last_closed: null,
         used: body.game.boards.map((board) => board.columns.map((column) => column.clues.map(() => false))),
         active_clue: null,
         last_result: null,
@@ -234,6 +241,9 @@ export class TriviaRoom {
       return error("That room is closed or has expired.", 404);
     }
     room.game = normalizeGame(room.game);
+    room.board_index ??= 0;
+    room.phase ??= room.started ? "playing" : "lobby";
+    room.transition_seconds ??= 10;
     if (await this.settleTimeout(room)) await this.persist(room);
 
     if (path === "/close" && request.method === "POST") {
@@ -270,14 +280,16 @@ export class TriviaRoom {
       if (!Number.isInteger(startingPoints) || startingPoints < 1) return error("Starting points must be a positive integer.");
       for (const player of room.players) player.points = startingPoints;
       room.started = true;
+      this.beginBoard(room);
       await this.persist(room);
       return json({ room: this.snapshot(room, request) });
     }
     if (path === "/clues" && request.method === "POST") {
       if (!this.isHost(request, room)) return error("Only the host can show a clue.", 403);
-      if (!room.started) return error("Start the game before showing a clue.", 409);
+      if (!room.started || room.phase !== "playing") return error("Wait for the current round to start.", 409);
       if (room.active_clue) return error("Finish the current clue first.", 409);
       const body = await request.json();
+      if (body.board_index !== room.board_index) return error("Choose a clue from the current board.", 409);
       const location = this.clueAt(room, body.board_index, body.column_index, body.row);
       if (!location || location.boss) return error("Choose an unused standard clue.");
       if (room.used[body.board_index][body.column_index][body.row]) return error("That clue has already been played.", 409);
@@ -290,7 +302,7 @@ export class TriviaRoom {
         attempt: 1,
         buzzer_id: null,
         buzzed_at: null,
-        deadline: null,
+        deadline: this.now() + 30_000,
         answer: null,
       };
       room.last_result = null;
@@ -308,6 +320,8 @@ export class TriviaRoom {
       active.buzzed_at = this.now();
       active.deadline = active.buzzed_at + ANSWER_TIME_MS;
       active.answer = null;
+      delete active.typo_checked;
+      delete active.typo_warning_answer;
       await this.persist(room);
       return json({ first: true, room: this.snapshot(room, request) });
     }
@@ -318,11 +332,17 @@ export class TriviaRoom {
         return error("Only the first player to buzz can submit this answer.", 403);
       }
       const body = await request.json();
-      const answerText = String(body.answer || "").trim().slice(0, 500);
-      if (!answerText) return error("Enter an answer before submitting.");
+      const answerText = String(body.answer || "").trim();
+      if (!answerText || answerText.length > 500) return error("Enter an answer of 1 to 500 characters.");
+      const { clue } = this.clueAt(room, active.board_index, active.column_index, active.row);
+      if (needsTypoConfirmation(active, clue, answerText, body.confirm_typo)) {
+        await this.persist(room);
+        return json({ needs_confirmation: true, room: this.snapshot(room, request) });
+      }
       active.answer = answerText;
       active.phase = "judging";
       active.submitted_at = this.now();
+      if (matchesAnswer(clue, answerText)) this.finishAttempt(room, "correct");
       await this.persist(room);
       return json({ submitted: true, room: this.snapshot(room, request) });
     }
@@ -333,6 +353,62 @@ export class TriviaRoom {
       const body = await request.json();
       if (typeof body.correct !== "boolean") return error("A ruling must be correct or incorrect.");
       this.finishAttempt(room, body.correct ? "correct" : "incorrect");
+      await this.persist(room);
+      return json({ room: this.snapshot(room, request) });
+    }
+    if (path === "/settings" && request.method === "POST") {
+      if (!this.isHost(request, room)) return error("Only the host can change settings.", 403);
+      const { transition_seconds: seconds } = await request.json();
+      if (!Number.isInteger(seconds) || seconds < 0 || seconds > 120) return error("Countdown must be 0 to 120 seconds.");
+      room.transition_seconds = seconds;
+      if (room.phase === "transition") room.transition_deadline = seconds ? this.now() + seconds * 1000 : null;
+      await this.persist(room);
+      return json({ room: this.snapshot(room, request) });
+    }
+    if (path === "/advance" && request.method === "POST") {
+      if (!this.isHost(request, room)) return error("Only the host can advance the board.", 403);
+      const body = await request.json();
+      if (room.phase !== "transition" || body.board_index !== room.board_index) return error("This board cannot advance.", 409);
+      this.advanceBoard(room);
+      await this.persist(room);
+      return json({ room: this.snapshot(room, request) });
+    }
+    if (["/wager", "/boss-answer"].includes(path) && request.method === "POST") {
+      const player = this.playerFor(request, room);
+      const boss = room.boss;
+      const phase = path === "/wager" ? "wager" : "answering";
+      if (!player || room.phase !== "boss" || boss?.phase !== phase) return error("This Boss phase is closed.", 409);
+      const entry = boss.entries[player.id];
+      const body = await request.json();
+      if (phase === "wager") {
+        if (entry.wager !== null) return error("Your wager is locked.", 409);
+        if (!Number.isInteger(body.wager) || body.wager < 0 || body.wager > Math.max(0, player.points)) return error("Wager must be between 0 and your available points.");
+        entry.wager = body.wager;
+      } else {
+        if (entry.answer !== null) return error("Your answer is locked.", 409);
+        const answer = String(body.answer || "").trim();
+        if (!answer || answer.length > 500) return error("Enter an answer of 1 to 500 characters.");
+        const { clue } = this.clueAt(room, room.board_index, 0, 0);
+        if (needsTypoConfirmation(entry, clue, answer, body.confirm_typo)) {
+          await this.persist(room);
+          return json({ needs_confirmation: true, room: this.snapshot(room, request) });
+        }
+        entry.answer = answer;
+      }
+      await this.persist(room);
+      return json({ room: this.snapshot(room, request) });
+    }
+    if (path === "/boss-ruling" && request.method === "POST") {
+      if (!this.isHost(request, room)) return error("Only the host can judge answers.", 403);
+      const body = await request.json();
+      const entry = room.boss?.entries[body.player_id];
+      if (room.phase !== "boss" || room.boss.phase !== "judging" || !entry || entry.graded) return error("This answer cannot be judged.", 409);
+      if (typeof body.correct !== "boolean") return error("A ruling must be correct or incorrect.");
+      const player = room.players.find(p => p.id === body.player_id);
+      player.points += body.correct ? entry.wager : -entry.wager;
+      entry.graded = true;
+      entry.correct = body.correct;
+      if (Object.values(room.boss.entries).every(e => e.graded)) this.closeBoss(room);
       await this.persist(room);
       return json({ room: this.snapshot(room, request) });
     }
@@ -365,33 +441,100 @@ export class TriviaRoom {
     const value = location.clue.value;
     player.points += outcome === "correct" ? value : -value;
     const result = { outcome, player_id: player.id, player_name: player.name, value, at: this.now() };
+    room.last_result = result;
     if (outcome === "correct") {
-      room.used[active.board_index][active.column_index][active.row] = true;
-      room.active_clue = null;
-      room.last_result = result;
+      this.closeClue(room, active, outcome);
       return;
     }
     active.excluded_player_ids.push(player.id);
-    room.last_result = result;
-    const eligible = room.players.some((entry) => !active.excluded_player_ids.includes(entry.id));
-    if (!eligible) {
-      room.used[active.board_index][active.column_index][active.row] = true;
-      room.active_clue = null;
+    if (!room.players.some(entry => !active.excluded_player_ids.includes(entry.id))) {
+      this.closeClue(room, active, "all_missed");
       return;
     }
     active.phase = "open";
     active.attempt += 1;
     active.buzzer_id = null;
     active.buzzed_at = null;
-    active.deadline = null;
+    active.deadline = this.now() + 30_000;
     active.answer = null;
     delete active.submitted_at;
   }
 
+  beginBoard(room) {
+    room.phase = "playing";
+    room.transition_deadline = null;
+    room.boss = null;
+    const location = this.clueAt(room, room.board_index, 0, 0);
+    if (location?.boss) {
+      room.phase = "boss";
+      room.boss = {
+        phase: "wager", deadline: this.now() + 30_000,
+        entries: Object.fromEntries(room.players.map(p => [p.id, { wager: null, answer: null, graded: false }])),
+      };
+    }
+  }
+
+  advanceBoard(room) {
+    room.board_index += 1;
+    this.beginBoard(room);
+  }
+
+  finishBoard(room) {
+    if (!room.used[room.board_index].flat().every(Boolean)) return;
+    room.phase = room.board_index === room.game.boards.length - 1 ? "finished" : "transition";
+    room.transition_deadline = room.phase === "transition" && room.transition_seconds
+      ? this.now() + room.transition_seconds * 1000 : null;
+  }
+
+  closeClue(room, active, outcome) {
+    const { clue, column } = this.clueAt(room, active.board_index, active.column_index, active.row);
+    room.used[active.board_index][active.column_index][active.row] = true;
+    room.last_closed = { topic: column.topic, clue: clue.clue, answer: clue.answer,
+      accepted_answers: clue.accepted_answers, explanation: clue.explanation, outcome };
+    room.active_clue = null;
+    this.finishBoard(room);
+  }
+
+  closeBoss(room) {
+    room.last_result = null;
+    this.closeClue(room, { board_index: room.board_index, column_index: 0, row: 0 }, "boss_complete");
+  }
+
   async settleTimeout(room) {
+    if (room.phase === "transition" && room.transition_deadline && room.transition_deadline <= this.now()) {
+      this.advanceBoard(room);
+      return true;
+    }
+    const boss = room.boss;
+    if (room.phase === "boss" && boss?.deadline <= this.now() && boss.phase !== "judging") {
+      if (boss.phase === "wager") {
+        for (const entry of Object.values(boss.entries)) entry.wager ??= 0;
+        boss.phase = "answering";
+        // Give players a full answer period even if an alarm was delayed.
+        boss.deadline = this.now() + 30_000;
+      } else {
+        boss.phase = "judging";
+        boss.deadline = null;
+        for (const player of room.players) {
+          const entry = boss.entries[player.id];
+          const { clue } = this.clueAt(room, room.board_index, 0, 0);
+          if (entry.answer === null || matchesAnswer(clue, entry.answer)) {
+            entry.correct = entry.answer !== null;
+            player.points += entry.correct ? entry.wager : -entry.wager;
+            entry.graded = true;
+            entry.automatic = entry.correct;
+          }
+        }
+        if (Object.values(boss.entries).every(e => e.graded)) this.closeBoss(room);
+      }
+      return true;
+    }
     const active = room.active_clue;
-    if (!active || active.phase !== "answering" || active.deadline > this.now()) return false;
-    this.finishAttempt(room, "timeout");
+    if (!active || !["open", "answering"].includes(active.phase) || active.deadline > this.now()) return false;
+    if (active.phase === "open") {
+      room.last_result = null;
+      this.closeClue(room, active, "unanswered");
+    } else this.finishAttempt(room, "timeout");
     return true;
   }
 
@@ -414,11 +557,29 @@ export class TriviaRoom {
         deadline: active.deadline,
         topic: location?.column.topic || "Untitled topic",
         value: location?.clue.value || 0,
-        ...(active.phase === "open" ? { clue: location?.clue.clue || "No clue was provided.", image: location?.clue.image || "" } : {}),
+        clue: location?.clue.clue || "No clue was provided.", image: location?.clue.image || "",
         ...(host && active.answer !== null ? { submitted_answer: active.answer } : {}),
+        ...(viewer?.id === active.buzzer_id && active.phase === "answering"
+          ? { typo_warning_answer: active.typo_warning_answer ?? null } : {}),
+      };
+    }
+    let boss = null;
+    if (room.phase === "boss") {
+      const { column, clue } = this.clueAt(room, room.board_index, 0, 0);
+      boss = {
+        phase: room.boss.phase, deadline: room.boss.deadline, topic: column.topic,
+        ...(room.boss.phase !== "wager" ? { clue: clue.clue, image: clue.image } : {}),
+        ...(host && room.boss.phase === "judging" ? { answer: clue.answer, accepted_answers: clue.accepted_answers, explanation: clue.explanation,
+          entries: room.players.map(p => ({ id: p.id, name: p.name, ...room.boss.entries[p.id] })) } : {}),
+        entry: viewer ? room.boss.entries[viewer.id] : null,
+        submitted: Object.values(room.boss.entries).filter(e => room.boss.phase === "wager" ? e.wager !== null : e.answer !== null).length,
       };
     }
     return {
+      server_time: this.now(),
+      phase: room.phase, board_index: room.board_index, board_count: room.game.boards.length,
+      transition_seconds: room.transition_seconds, transition_deadline: room.transition_deadline,
+      boss, last_closed: room.last_closed,
       game: { name: room.game.name },
       expires_at: room.expires_at,
       started: room.started,
@@ -434,7 +595,8 @@ export class TriviaRoom {
   async persist(room) {
     room.revision += 1;
     await this.state.storage.put("room", room);
-    const deadline = room.active_clue?.phase === "answering" ? room.active_clue.deadline : room.expires_at;
+    const deadline = (["open", "answering"].includes(room.active_clue?.phase) ? room.active_clue.deadline : null)
+      ?? (room.phase === "boss" ? room.boss?.deadline : null) ?? room.transition_deadline ?? room.expires_at;
     await this.state.storage.setAlarm(Math.min(deadline, room.expires_at));
   }
 
