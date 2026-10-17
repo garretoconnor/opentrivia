@@ -1126,3 +1126,16 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 #featured-slide { min-height: 240px; }
 #featured-carousel .game-card-actions { display: flex; flex-wrap: wrap; justify-content: flex-start; }
 #featured-carousel .game-card-actions .button { flex: 0 1 auto; min-width: 140px; }
+
+/* Shared room phases keep clues and controls readable on player phones. */
+.room-timer { font-size: 2rem; font-weight: 800; font-variant-numeric: tabular-nums; margin: 12px 0; }
+.player-console .correct-response { text-align: left; overflow-wrap: anywhere; }
+.player-console form { display: grid; gap: 12px; margin: 16px 0; }
+.player-console input { width: 100%; min-width: 0; }
+.player-console .final-standings { width: 100%; }
+#round-countdown, #host-countdown { max-width: 180px; margin: 8px 0; }
+.join-card:has(.player-console) > .room-code-icon,
+.join-card:has(.player-console) > .eyebrow,
+.join-card:has(.player-console) > h1,
+.join-card:has(.player-console) > p { display: none; }
+.join-card:has(.player-console) .player-console { margin-top: 0; }
