@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
-import { handleApi } from '../api.mjs';
-import { handleDaily } from '../daily.mjs';
+import { handleApi } from '../src/server/api.mjs';
+import { handleDaily } from '../src/server/daily.mjs';
 
 function setup() {
   const db = new DatabaseSync(':memory:');

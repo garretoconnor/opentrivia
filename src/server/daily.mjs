@@ -1,6 +1,6 @@
 import { resolveAccount } from './auth.mjs';
-import { matchesAnswer } from './core.mjs';
-export { normalizeAnswer } from './core.mjs';
+import { matchesAnswer } from '../shared/core.mjs';
+export { normalizeAnswer } from '../shared/core.mjs';
 
 const DAY_MS = 86_400_000;
 const OFFSET_MS = 7 * 60 * 60 * 1000;

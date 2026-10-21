@@ -1,20 +1,26 @@
 import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 
-const moduleFiles = (await readdir("modules")).filter((file) => file.endsWith(".js")).map((file) => `modules/${file}`);
-// Local room support imports api.mjs, which also imports daily.mjs. Both must
-// be served to browsers as well as copied for the Worker entrypoint.
-const files = ["index.html", "admin.html", "admin.css", "admin.js", "admin.mjs", "ok-logo.svg", "favicon.svg", "styles.css", "studio.css", "app.js", "core.mjs", "api.mjs", "answer-check.mjs", "daily.mjs", "auth.mjs", "profiles.mjs", "accounts.css", ...moduleFiles];
+// Public files retain their URLs; shared and local-room modules keep their
+// source layout so relative imports work in both Node and the browser.
+const publicFiles = (await readdir("public", { recursive: true, withFileTypes: true }))
+  .filter((entry) => entry.isFile())
+  .map((entry) => `${entry.parentPath}/${entry.name}`.replace(/^public\//, ""));
+const browserModules = ["src/shared/core.mjs", "src/shared/answer-check.mjs",
+  ...["api", "daily", "admin", "auth", "profiles"].map((name) => `src/server/${name}.mjs`)];
+const files = [...publicFiles, ...browserModules];
 
 await rm("dist", { recursive: true, force: true });
-await mkdir("dist/modules", { recursive: true });
 await mkdir("dist/server", { recursive: true });
-await Promise.all([...files, "accounts.mjs", "better-auth-server.mjs"].map((file) => cp(file, `dist/${file}`)));
+await cp("public", "dist", { recursive: true });
+await cp("src", "dist/src", { recursive: true });
 
-const assets = Object.fromEntries(await Promise.all(files.map(async (file) => [`/${file}`, await readFile(file, "utf8")])));
+const assets = Object.fromEntries(await Promise.all(files.map(async (file) => [
+  `/${file}`, await readFile(publicFiles.includes(file) ? `public/${file}` : file, "utf8")
+])));
 assets["/"] = assets["/index.html"];
 assets["/admin"] = assets["/admin.html"];
 
-const worker = `import { handleApi, TriviaRoom } from "../api.mjs";
+const worker = `import { handleApi, TriviaRoom } from "../src/server/api.mjs";
 
 export { TriviaRoom };
 

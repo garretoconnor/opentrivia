@@ -19,8 +19,8 @@ import {
   matchesAnswer,
   resizeBoard,
   setWager,
-} from "../core.mjs";
-import { TriviaRoom } from "../api.mjs";
+} from "../src/shared/core.mjs";
+import { TriviaRoom } from "../src/server/api.mjs";
 
 test("new games use the required defaults", () => {
   const game = createGame();

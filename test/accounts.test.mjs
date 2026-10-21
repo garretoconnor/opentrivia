@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { handleApi } from '../api.mjs';
-import { createGame } from '../core.mjs';
+import { handleApi } from '../src/server/api.mjs';
+import { createGame } from '../src/shared/core.mjs';
 import { D1 } from './support/d1.mjs';
 const password = 'a long test passphrase';
 function setup() {

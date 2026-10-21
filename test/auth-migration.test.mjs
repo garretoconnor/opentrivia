@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { handleApi } from '../api.mjs';
-import { createGame } from '../core.mjs';
+import { handleApi } from '../src/server/api.mjs';
+import { createGame } from '../src/shared/core.mjs';
 import { D1 } from './support/d1.mjs';
 import { enrollmentSQL } from '../scripts/enroll-legacy-account.mjs';
 

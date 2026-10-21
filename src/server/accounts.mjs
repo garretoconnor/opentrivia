@@ -1,5 +1,5 @@
 import { cookieValue, fail, json, readBody, resolveAccount, validMutation } from './auth.mjs';
-import { normalizeGame } from './core.mjs';
+import { normalizeGame } from '../shared/core.mjs';
 
 export async function handleAccounts(request, env) {
   if (!env.DB) return fail('Accounts need the Cloudflare server.', 503);

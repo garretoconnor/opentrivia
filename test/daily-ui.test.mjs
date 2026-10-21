@@ -36,9 +36,9 @@ globalThis.setInterval = fn => { intervals.set(++timerId, fn); return timerId; }
 globalThis.clearInterval = id => intervals.delete(id);
 globalThis.setTimeout = () => ++timerId;
 globalThis.clearTimeout = () => {};
-const { state } = await import('../modules/state.js?v=0.11.0');
+const { state } = await import('../public/modules/state.js?v=0.11.0');
 state.currentView = 'daily';
-const { initDaily, loadDaily } = await import('../modules/daily.js');
+const { initDaily, loadDaily } = await import('../public/modules/daily.js');
 initDaily();
 let server;
 let answerBody;
@@ -134,7 +134,7 @@ test('reloading an unfinished run voids its time', async () => {
   server.run = { started_at: Date.parse(server.server_time), voided: false };
   server.player = { name: 'Ada' };
   server.question.clue = 'Resumed clue';
-  const reloaded = await import('../modules/daily.js?reload-test');
+  const reloaded = await import('../public/modules/daily.js?reload-test');
   await reloaded.loadDaily();
   assert.equal(server.run.voided, true);
   assert.equal(get('#daily-question').textContent, 'Resumed clue');

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame } from '../core.mjs';
+import { createGame } from '../src/shared/core.mjs';
 
 // Minimal DOM adapter: exercise the real editor event handlers and persisted data.
 class Element {
@@ -35,8 +35,8 @@ globalThis.Option = class extends Element { constructor(text, value) { super(); 
 const storage = new Map();
 let failSave = false;
 globalThis.localStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => { if (failSave) throw new Error('Quota exceeded'); storage.set(key, value); } };
-const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.11.0');
-const { initStudio, renderStudio, editStudioClue } = await import('../modules/studio.js');
+const { state, saveGame, STORAGE_KEY } = await import('../public/modules/state.js?v=0.11.0');
+const { initStudio, renderStudio, editStudioClue } = await import('../public/modules/studio.js');
 initStudio();
 function reset() { failSave = false; state.game = createGame(); state.authoredGame = state.game; state.selectedBoard = 0; renderStudio(); saveGame(); }
 const clue = () => state.game.boards[0].columns[0].clues[0];
@@ -177,7 +177,7 @@ test('round titles persist through normalization and appear in round navigation'
   await get('#round-title').fire('input');
   assert.equal(state.game.boards[0].title, 'Science & Nature');
   assert.match(get('#board-list').children[0].innerHTML, /Science &amp; Nature/);
-  const { normalizeGame } = await import('../core.mjs');
+  const { normalizeGame } = await import('../src/shared/core.mjs');
   assert.equal(normalizeGame(JSON.parse(storage.get(STORAGE_KEY))).boards[0].title, 'Science & Nature');
   failSave = true;
   get('#round-title').value = 'Unsaved title';
@@ -191,9 +191,9 @@ test('round titles persist through normalization and appear in round navigation'
 
 test('preview plays the selected round in isolation and restores the editor on exit', async () => {
   reset();
-  const { initLocalPlay, previewRound } = await import('../modules/local-play.js?v=0.11.0');
-  const { switchView } = await import('../modules/render.js?v=0.11.0');
-  const { createBossBoard } = await import('../core.mjs');
+  const { initLocalPlay, previewRound } = await import('../public/modules/local-play.js?v=0.11.0');
+  const { switchView } = await import('../public/modules/render.js?v=0.11.0');
+  const { createBossBoard } = await import('../src/shared/core.mjs');
   initLocalPlay({});
   state.game.boards.push(createBossBoard());
   const authored = state.game, originalSession = { fixture: true };

@@ -1,6 +1,6 @@
 import { publishCloudGame } from './accounts.js?v=0.11.0';
 import { editStudioClue } from "./studio.js?v=0.11.0";
-import { difficultySymbol, normalizeGame } from "../core.mjs?v=0.11.0";
+import { difficultySymbol, normalizeGame } from "../../src/shared/core.mjs?v=0.11.0";
 import { allowsLocalFallback, api } from "./data.js?v=0.11.0";
 import { $, elements, escapeHtml, switchView, toast } from "./render.js?v=0.11.0";
 import { localLibrary, saveGame, saveLocalLibrary, state, voterId } from "./state.js?v=0.11.0";

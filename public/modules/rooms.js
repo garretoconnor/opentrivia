@@ -1,4 +1,4 @@
-import { TriviaRoom } from "../api.mjs?v=0.11.0";
+import { TriviaRoom } from "../../src/server/api.mjs?v=0.11.0";
 import { allowsLocalFallback, api } from "./data.js?v=0.11.0";
 import { state } from "./state.js?v=0.11.0";
 

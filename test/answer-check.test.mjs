@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { matchesAnswer } from '../core.mjs';
-import { isPossibleTypo, needsTypoConfirmation } from '../answer-check.mjs';
+import { matchesAnswer } from '../src/shared/core.mjs';
+import { isPossibleTypo, needsTypoConfirmation } from '../src/shared/answer-check.mjs';
 const clue = (answer, accepted_answers = []) => ({ answer, accepted_answers });
 
 test('acceptance ignores case and spacing but requires an explicit alternative for different number forms', () => {

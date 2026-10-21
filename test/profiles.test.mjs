@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { D1 } from './support/d1.mjs';
-import { handleApi } from '../api.mjs';
-import { dailyStats } from '../profiles.mjs';
-import { createGame } from '../core.mjs';
+import { handleApi } from '../src/server/api.mjs';
+import { dailyStats } from '../src/server/profiles.mjs';
+import { createGame } from '../src/shared/core.mjs';
 
 function setup() {
   const DB = new D1();

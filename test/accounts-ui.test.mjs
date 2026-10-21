@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame } from '../core.mjs';
+import { createGame } from '../src/shared/core.mjs';
 class Element {
   listeners = {}; hidden = false; value = ''; textContent = ''; dataset = {}; children = [];
   classList = { toggle() {} };
@@ -19,8 +19,8 @@ const storage = new Map(); let storageFails = false;
 globalThis.localStorage = { getItem: key => storage.get(key) ?? null, setItem(key, value) { if (storageFails) throw new Error('Full'); storage.set(key, value); } };
 globalThis.document = Object.assign(new Element(), { querySelector: get, querySelectorAll: () => [], getElementById: id => get(`#${id}`), createElement: () => new Element(), dispatchEvent() {} });
 globalThis.window = Object.assign(new Element(), { scrollTo() {}, confirm: () => true });
-const { state, saveGame, STORAGE_KEY } = await import('../modules/state.js?v=0.11.0');
-const { initAccounts, flushCloud } = await import('../modules/accounts.js?v=0.11.0');
+const { state, saveGame, STORAGE_KEY } = await import('../public/modules/state.js?v=0.11.0');
+const { initAccounts, flushCloud } = await import('../public/modules/accounts.js?v=0.11.0');
 const account = { id: 'alice-id', name: 'Alice' };
 let server, calls, fail, hold, currentAccount;
 async function reset(cached, options = {}) {
@@ -245,7 +245,7 @@ test('failed import can be retried without losing the review or local original',
 
 test('switching waits for pending saves, blocks overlapping switches, and retains separate backups', async () => {
   await reset();
-  const { openGame, activeCloudGame } = await import('../modules/accounts.js?v=0.11.0');
+  const { openGame, activeCloudGame } = await import('../public/modules/accounts.js?v=0.11.0');
   state.currentView = 'studio';
   state.game.name = 'Draft A'; saveGame(); await flushCloud();
   const a = activeCloudGame().id, b = crypto.randomUUID();
@@ -267,7 +267,7 @@ test('switching waits for pending saves, blocks overlapping switches, and retain
 
 test('failed cloud sync prevents a draft switch without losing edits', async () => {
   await reset();
-  const { openGame } = await import('../modules/accounts.js?v=0.11.0');
+  const { openGame } = await import('../public/modules/accounts.js?v=0.11.0');
   state.currentView = 'studio'; state.game.name = 'Keep me'; saveGame(); fail = 503;
   await openGame(crypto.randomUUID());
   assert.equal(state.game.name, 'Keep me');
@@ -277,7 +277,7 @@ test('failed cloud sync prevents a draft switch without losing edits', async () 
 
 test('guest drafts autosave independently and survive switching in both directions', async () => {
   await reset(null, { signedOut: true }); state.currentView = 'studio';
-  const { openGame } = await import('../modules/accounts.js?v=0.11.0');
+  const { openGame } = await import('../public/modules/accounts.js?v=0.11.0');
   state.game.name = 'Guest A'; saveGame();
   const a = storage.get('opentrivia.guest.drafts.active');
   await get('#new-cloud-game').fire('click');
