@@ -12,7 +12,7 @@ import {
   normalizeBoard,
   normalizeGame,
   resizeBoard,
-} from "../core.mjs?v=0.11.0";
+} from "../../src/shared/core.mjs?v=0.11.0";
 import { $, elements, escapeHtml, fillNumberOptions, toast } from "./render.js?v=0.11.0";
 import { saveGame as persistGame, state } from "./state.js?v=0.11.0";
 

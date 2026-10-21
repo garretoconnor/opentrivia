@@ -1,7 +1,7 @@
 import { api } from './data.js?v=0.11.0';
 import { $, escapeHtml, switchView } from './render.js?v=0.11.0';
 import { state } from './state.js?v=0.11.0';
-import { difficultySymbol, normalizeGame } from '../core.mjs?v=0.11.0';
+import { difficultySymbol, normalizeGame } from '../../src/shared/core.mjs?v=0.11.0';
 
 let generation = 0, dependencies;
 const profileURL = user => user.username ? `/@${encodeURIComponent(user.username)}` : `/#profile=${encodeURIComponent(user.id)}`;

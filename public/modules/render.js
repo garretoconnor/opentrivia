@@ -1,4 +1,4 @@
-import { buzzTimer } from "../core.mjs?v=0.11.0";
+import { buzzTimer } from "../../src/shared/core.mjs?v=0.11.0";
 import { state } from "./state.js?v=0.11.0";
 
 export const $ = (selector) => document.querySelector(selector);

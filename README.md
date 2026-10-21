@@ -68,7 +68,7 @@ The original `wrangler.toml` is retained as a conversion reference. Make future 
 
 Published game JSON and uploaded hero/clue images are stored in D1. Room state—including joined players, buzz order, deadlines, rulings, and scores—is serialized by a Durable Object. It expires after six hours and is deleted immediately when the host closes the room.
 
-Boards and complete games use the current [data model](docs/data-model.md). Clue content uses `clue` for displayed text and `answer` for the correct response, with optional `image`, `accepted_answers`, and `explanation`. Imports still accept the legacy format from [`spec_v0_1.md`](spec_v0_1.md), where `answer` meant displayed text and `question` meant the correct response. Version 0.2 added `difficulty` and `hero_image`; version 0.3 added live hosted buzzing. Boss clues deliberately have no `value` because their scoring is wager-based.
+Boards and complete games use the current [data model](docs/data-model.md). Clue content uses `clue` for displayed text and `answer` for the correct response, with optional `image`, `accepted_answers`, and `explanation`. Imports still accept the legacy format from [`spec_v0_1.md`](docs/spec_v0_1.md), where `answer` meant displayed text and `question` meant the correct response. Version 0.2 added `difficulty` and `hero_image`; version 0.3 added live hosted buzzing. Boss clues deliberately have no `value` because their scoring is wager-based.
 
 ## Daily trivia
 
@@ -224,3 +224,17 @@ Apply `0010_featured_games.sql` before deploying this version. In `/admin`, use 
 Explore is the default landing view. Signed-in creators appear as `by @username` on public cards. Enable **Publish anonymously (hide my byline)** in Game Studio settings and publish/republish to omit attribution. Anonymous games also stay out of the creator's public game list.
 
 **My Games** lives in Game Studio, with a draft picker and a collapsible list. Guest drafts save separately on the device; signed-in drafts also sync to the account. Clue text, responses, alternatives, explanations, and images autosave. Draft switching waits for outstanding cloud saves, blocks conflicting transitions, and keeps the current draft open if syncing fails. Per-draft device backups preserve separate copies; storage or network failures are shown in the save status. Guest drafts are included in the browser-history import review after signing in.
+
+## Repository layout
+
+- `public/`: browser pages, styles, images, and JavaScript modules.
+- `src/server/`: API handlers, authentication, accounts, profiles, and daily trivia.
+- `src/shared/`: game rules and answer matching shared with the browser.
+- `database/schema.sql`: reference database schema.
+- `migrations/`: ordered D1 migrations (kept at the default Cloudflare location).
+- `scripts/`: build and deployment utilities.
+- `test/`: automated tests and database helpers.
+- `docs/`: specifications and design documentation.
+- `dist/`: generated browser assets and Worker entrypoint.
+
+Run `npm run dev` to build and serve the static app. Re-run it after source changes. Use `npm run dev:worker` for API and database functionality.

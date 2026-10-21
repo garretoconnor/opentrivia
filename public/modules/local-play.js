@@ -4,7 +4,7 @@ import {
   gradeBossGuess,
   isBossBoard,
   setWager,
-} from "../core.mjs?v=0.11.0";
+} from "../../src/shared/core.mjs?v=0.11.0";
 import { api } from "./data.js?v=0.11.0";
 import { rateGame, recordLocalPlay } from "./library.js?v=0.11.0";
 import { $, elements, escapeHtml, formatText, answerDetails, switchView, toast } from "./render.js?v=0.11.0";

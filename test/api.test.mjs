@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { TriviaRoom, handleApi } from "../api.mjs";
-import { createGame, createBoard, createBossBoard } from "../core.mjs";
+import { TriviaRoom, handleApi } from "../src/server/api.mjs";
+import { createGame, createBoard, createBossBoard } from "../src/shared/core.mjs";
 
 class MemoryD1 {
   constructor() {

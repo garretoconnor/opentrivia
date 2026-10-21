@@ -1,4 +1,4 @@
-import { createGame, normalizeGame } from '../core.mjs?v=0.11.0';
+import { createGame, normalizeGame } from '../../src/shared/core.mjs?v=0.11.0';
 import { api } from './data.js?v=0.11.0';
 import { $, escapeHtml, switchView, toast } from './render.js?v=0.11.0';
 import { configurePersistence, loadGuestGame, localLibrary, state, STORAGE_KEY } from './state.js?v=0.11.0';

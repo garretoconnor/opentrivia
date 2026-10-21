@@ -1,5 +1,5 @@
 import { roomTimer, closedClue, standings, clueText } from './room-ui.js?v=0.11.0';
-import { normalizeGame } from "../core.mjs?v=0.11.0";
+import { normalizeGame } from "../../src/shared/core.mjs?v=0.11.0";
 import { allowsLocalFallback, api } from "./data.js?v=0.11.0";
 import { getPublishedGame, recordLocalPlay } from "./library.js?v=0.11.0";
 import { renderPlayRound, renderScoreboard, renderStandardRound } from "./local-play.js?v=0.11.0";

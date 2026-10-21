@@ -1,7 +1,7 @@
-import { needsTypoConfirmation } from './answer-check.mjs';
+import { needsTypoConfirmation } from '../shared/answer-check.mjs';
 import { handleDaily } from "./daily.mjs";
 import { handleAdmin } from "./admin.mjs";
-import { matchesAnswer, normalizeGame } from "./core.mjs?v=0.11.0";
+import { matchesAnswer, normalizeGame } from "../shared/core.mjs?v=0.11.0";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 const ROOM_TTL_MS = 6 * 60 * 60 * 1000;
